@@ -2805,7 +2805,7 @@ export default function NeonLinkMockup() {
                     <div className="pt-1 space-y-0.5">
                       <span className="text-xs font-medium text-cyan-300/90">Profil bearbeiten →</span>
                       <p className="text-[10px] text-white/40 leading-snug">
-                        Chat-Schriftfarbe: im Profil unter „Chat-Schriftfarbe“ (Farben & Freiwahl).
+                        Chat-Schriftfarbe: im Profil-Dialog direkt unter dem Profilbild (türkiser Block).
                       </p>
                     </div>
                   </div>

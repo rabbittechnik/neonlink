@@ -318,32 +318,10 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
                 <p className="text-[11px] text-white/40 text-center">Klick auf das Bild zum Hochladen · Vorschau sofort sichtbar</p>
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 space-y-3">
-                <div className="text-xs uppercase tracking-wider text-white/40">Identität</div>
-                <label className="block text-xs text-white/50">Anzeigename</label>
-                <Input
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  className="bg-white/5 border-white/12 rounded-xl text-white"
-                />
-                <label className="block text-xs text-white/50">Kurzstatus (für andere sichtbar)</label>
-                <Input
-                  value={statusMessage}
-                  onChange={(e) => setStatusMessage(e.target.value)}
-                  placeholder="z. B. In einer Besprechung"
-                  className="bg-white/5 border-white/12 rounded-xl text-white placeholder:text-white/30"
-                />
-                <label className="block text-xs text-white/50">Bio / Beschreibung</label>
-                <textarea
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  rows={3}
-                  className="w-full rounded-xl bg-white/5 border border-white/12 px-3 py-2 text-sm text-white placeholder:text-white/30 resize-none"
-                  placeholder="Erzähl etwas über dich…"
-                />
-              </div>
-
-              <div className="rounded-2xl border border-cyan-400/15 bg-cyan-500/[0.06] p-4 space-y-3">
+              <div
+                id="profile-chat-schriftfarbe"
+                className="rounded-2xl border border-cyan-400/15 bg-cyan-500/[0.06] p-4 space-y-3 scroll-mt-4"
+              >
                 <div className="text-xs uppercase tracking-wider text-cyan-200/70 flex items-center gap-2">
                   <Palette className="h-3.5 w-3.5" />
                   Chat-Schriftfarbe
@@ -386,6 +364,31 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
                     aria-label="Freie Farbwahl für Chat-Text"
                   />
                 </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 space-y-3">
+                <div className="text-xs uppercase tracking-wider text-white/40">Identität</div>
+                <label className="block text-xs text-white/50">Anzeigename</label>
+                <Input
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  className="bg-white/5 border-white/12 rounded-xl text-white"
+                />
+                <label className="block text-xs text-white/50">Kurzstatus (für andere sichtbar)</label>
+                <Input
+                  value={statusMessage}
+                  onChange={(e) => setStatusMessage(e.target.value)}
+                  placeholder="z. B. In einer Besprechung"
+                  className="bg-white/5 border-white/12 rounded-xl text-white placeholder:text-white/30"
+                />
+                <label className="block text-xs text-white/50">Bio / Beschreibung</label>
+                <textarea
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-xl bg-white/5 border border-white/12 px-3 py-2 text-sm text-white placeholder:text-white/30 resize-none"
+                  placeholder="Erzähl etwas über dich…"
+                />
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 space-y-3">
