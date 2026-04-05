@@ -2207,7 +2207,7 @@ export default function NeonLinkMockup() {
                   {currentUser?.avatarUrl ? (
                     <img src={currentUser.avatarUrl} alt="" className="h-full w-full object-cover" />
                   ) : (
-                    <AvatarFallback className="flex h-full w-full items-center justify-center bg-gradient-to-br from-cyan-500/30 to-violet-600/30 text-xs sm:text-sm font-semibold text-white">
+                    <AvatarFallback className="neonlink-avatar-initials text-xs sm:text-sm leading-none">
                       {(currentUser?.displayName ?? "?").slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   )}
@@ -2449,7 +2449,7 @@ export default function NeonLinkMockup() {
                       <button
                         type="button"
                         onClick={() => setPeerProfileUserId(m.senderUserId!)}
-                        className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-white/15 p-0 bg-transparent cursor-pointer hover:ring-2 hover:ring-cyan-400/40 transition-shadow"
+                        className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-cyan-400/35 p-0 bg-transparent cursor-pointer hover:ring-2 hover:ring-cyan-400/50 transition-shadow shadow-[0_0_14px_rgba(34,211,238,0.2)]"
                         style={
                           peerBubble ? { borderColor: peerBubble.borderColor } : undefined
                         }
@@ -2458,17 +2458,17 @@ export default function NeonLinkMockup() {
                         {msgAvatarSrc ? (
                           <img src={msgAvatarSrc} alt="" className="h-full w-full object-cover" />
                         ) : (
-                          <span className="flex h-full w-full items-center justify-center bg-white/10 text-xs font-medium text-white">
+                          <span className="neonlink-avatar-initials text-[12px] leading-none">
                             {m.from.slice(0, 2).toUpperCase()}
                           </span>
                         )}
                       </button>
                     ) : (
-                      <Avatar className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-white/15">
+                      <Avatar className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-cyan-400/30 shadow-[0_0_12px_rgba(34,211,238,0.18)]">
                         {msgAvatarSrc ? (
                           <img src={msgAvatarSrc} alt="" className="h-full w-full object-cover" />
                         ) : (
-                          <AvatarFallback className="flex h-full w-full items-center justify-center bg-white/10 text-xs font-medium text-white">
+                          <AvatarFallback className="neonlink-avatar-initials text-[12px] leading-none">
                             {m.from.slice(0, 2).toUpperCase()}
                           </AvatarFallback>
                         )}
@@ -2817,7 +2817,7 @@ export default function NeonLinkMockup() {
                       {currentUser?.avatarUrl ? (
                         <img src={currentUser.avatarUrl} alt="" className="h-full w-full object-cover" />
                       ) : (
-                        <AvatarFallback className="flex h-full w-full items-center justify-center bg-white/10 text-xl font-semibold text-white">
+                        <AvatarFallback className="neonlink-avatar-initials neonlink-avatar-initials-lg text-xl leading-none">
                           {(currentUser?.displayName ?? "?").slice(0, 2).toUpperCase()}
                         </AvatarFallback>
                       )}
@@ -2892,7 +2892,7 @@ export default function NeonLinkMockup() {
                           {friend.avatarUrl ? (
                             <img src={friend.avatarUrl} alt="" className="h-full w-full object-cover" />
                           ) : (
-                            <AvatarFallback className="flex h-full w-full items-center justify-center bg-emerald-900/30 text-[10px] text-emerald-100">
+                            <AvatarFallback className="neonlink-avatar-initials-emerald text-[11px] leading-none">
                               {friend.displayName.slice(0, 2).toUpperCase()}
                             </AvatarFallback>
                           )}

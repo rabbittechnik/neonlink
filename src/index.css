@@ -39,3 +39,44 @@
     color: #e2e8f0;
   }
 }
+
+@layer utilities {
+  /* Initialen in Chat & Avataren: hoher Kontrast + Neon-Glow (lesbar auf dunklem Grund) */
+  .neonlink-avatar-initials {
+    @apply flex h-full w-full items-center justify-center font-extrabold tracking-wide;
+    background: linear-gradient(155deg, rgb(12 74 110 / 0.92), rgb(67 56 202 / 0.78));
+    color: #ecfeff;
+    text-shadow:
+      0 0 3px rgb(207 250 254),
+      0 0 8px rgb(34 211 238 / 0.95),
+      0 0 16px rgb(6 182 212 / 0.65),
+      0 0 26px rgb(59 130 246 / 0.4);
+    box-shadow:
+      inset 0 0 0 1px rgb(103 232 249 / 0.45),
+      0 0 14px rgb(34 211 238 / 0.28);
+  }
+
+  .neonlink-avatar-initials-lg {
+    text-shadow:
+      0 0 4px rgb(207 250 254),
+      0 0 12px rgb(34 211 238 / 1),
+      0 0 24px rgb(6 182 212 / 0.75),
+      0 0 36px rgb(59 130 246 / 0.45);
+    box-shadow:
+      inset 0 0 0 1px rgb(103 232 249 / 0.5),
+      0 0 22px rgb(34 211 238 / 0.35);
+  }
+
+  .neonlink-avatar-initials-emerald {
+    @apply flex h-full w-full items-center justify-center font-extrabold tracking-wide;
+    background: linear-gradient(155deg, rgb(6 78 59 / 0.92), rgb(20 83 45 / 0.82));
+    color: #ecfdf5;
+    text-shadow:
+      0 0 3px rgb(209 250 229),
+      0 0 8px rgb(52 211 153 / 0.95),
+      0 0 16px rgb(16 185 129 / 0.55);
+    box-shadow:
+      inset 0 0 0 1px rgb(110 231 183 / 0.4),
+      0 0 12px rgb(52 211 153 / 0.22);
+  }
+}
