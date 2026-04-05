@@ -6,7 +6,7 @@ type Props = { payload: ChatCalendarAnnouncement };
 
 export function CalendarAnnouncementMessage({ payload: c }: Props) {
   return (
-    <div className="rounded-xl border border-cyan-400/25 bg-gradient-to-br from-cyan-950/40 to-slate-950/50 px-3.5 py-3 space-y-2.5">
+    <div className="min-w-0 rounded-xl border border-cyan-400/25 bg-gradient-to-br from-cyan-950/40 to-slate-950/50 px-3.5 py-3 space-y-2.5 break-words [overflow-wrap:anywhere]">
       <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-cyan-200/80">
         <CalendarDays className="h-3.5 w-3.5 text-cyan-300" />
         Neuer Kalendereintrag

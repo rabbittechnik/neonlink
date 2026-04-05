@@ -2466,7 +2466,7 @@ export default function NeonLinkMockup() {
                         <span className="text-white/40">{m.time}</span>
                       </div>
                       <div
-                        className={`mt-1 w-fit ${bubbleMax} rounded-2xl border px-4 py-3 text-sm leading-relaxed shadow-lg shadow-black/10 ${
+                        className={`mt-1 w-full min-w-0 max-w-full rounded-2xl border px-4 py-3 text-sm leading-relaxed shadow-lg shadow-black/10 break-words [overflow-wrap:anywhere] ${
                           isMine
                             ? "border-cyan-300/50 bg-gradient-to-br from-cyan-500/35 via-cyan-600/20 to-slate-900/55"
                             : m.calendarAnnouncement
@@ -2488,7 +2488,7 @@ export default function NeonLinkMockup() {
                         }}
                       >
                         {m.replyTo ? (
-                          <div className="mb-2 rounded-lg border border-white/10 bg-black/20 px-2 py-1 text-[11px] text-white/70">
+                          <div className="mb-2 min-w-0 rounded-lg border border-white/10 bg-black/20 px-2 py-1 text-[11px] text-white/70 break-words [overflow-wrap:anywhere]">
                             <span className="text-cyan-200/90">{m.replyTo.from}</span>
                             <span className="text-white/50"> · </span>
                             {m.replyTo.preview}
@@ -2497,7 +2497,9 @@ export default function NeonLinkMockup() {
                         {m.calendarAnnouncement ? (
                           <CalendarAnnouncementMessage payload={m.calendarAnnouncement} />
                         ) : (
-                          m.text
+                          <span className="block whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                            {m.text}
+                          </span>
                         )}
                       </div>
                       {m.attachments?.length ? (
