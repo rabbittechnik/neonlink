@@ -12,6 +12,7 @@ import {
   Loader2,
   Globe,
   Lock,
+  Palette,
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,17 @@ const STATUS_OPTIONS: { value: PresenceKind; label: string }[] = [
   { value: "busy", label: "Beschäftigt" },
   { value: "offline", label: "Offline" },
   { value: "on_call", label: "Im Einsatz" },
+];
+
+const CHAT_TEXT_PRESETS: { hex: string; label: string }[] = [
+  { hex: "#e2e8f0", label: "Hell" },
+  { hex: "#22d3ee", label: "Cyan" },
+  { hex: "#f472b6", label: "Pink" },
+  { hex: "#facc15", label: "Gelb" },
+  { hex: "#4ade80", label: "Grün" },
+  { hex: "#fb923c", label: "Orange" },
+  { hex: "#a78bfa", label: "Violett" },
+  { hex: "#f87171", label: "Rot" },
 ];
 
 const VIS_OPTIONS: { value: ContactVisibility; label: string; icon: React.ReactNode }[] = [
@@ -73,6 +85,7 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
   const [phoneCodeOpen, setPhoneCodeOpen] = useState(false);
   const [emailCode, setEmailCode] = useState("");
   const [phoneCode, setPhoneCode] = useState("");
+  const [chatTextColor, setChatTextColor] = useState<string | null>(null);
 
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -93,6 +106,7 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
     setPhoneCodeOpen(false);
     setEmailCode("");
     setPhoneCode("");
+    setChatTextColor(user.chatTextColor ?? null);
   }, [open, user, activeSectionId]);
 
   if (!user) return null;
@@ -112,6 +126,7 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
         contactEmail: contactEmail.trim(),
         emailVisibility: emailVis,
         phoneVisibility: phoneVis,
+        chatTextColor,
         ...(phoneInput.trim() ? { phone: phoneInput.trim() } : {}),
       });
       onClose();
@@ -326,6 +341,51 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
                   className="w-full rounded-xl bg-white/5 border border-white/12 px-3 py-2 text-sm text-white placeholder:text-white/30 resize-none"
                   placeholder="Erzähl etwas über dich…"
                 />
+              </div>
+
+              <div className="rounded-2xl border border-cyan-400/15 bg-cyan-500/[0.06] p-4 space-y-3">
+                <div className="text-xs uppercase tracking-wider text-cyan-200/70 flex items-center gap-2">
+                  <Palette className="h-3.5 w-3.5" />
+                  Chat-Schriftfarbe
+                </div>
+                <p className="text-[11px] text-white/45 leading-snug">
+                  Name und Nachrichtentext im Live-Chat — für alle sichtbar, die deine Nachrichten lesen.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setChatTextColor(null)}
+                    className={`rounded-xl border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                      chatTextColor === null
+                        ? "border-cyan-400/50 bg-cyan-500/20 text-cyan-100"
+                        : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"
+                    }`}
+                  >
+                    Standard
+                  </button>
+                  {CHAT_TEXT_PRESETS.map((p) => (
+                    <button
+                      key={p.hex}
+                      type="button"
+                      onClick={() => setChatTextColor(p.hex)}
+                      title={p.label}
+                      className={`h-8 w-8 rounded-full border-2 shrink-0 transition-transform hover:scale-105 ${
+                        chatTextColor === p.hex ? "border-white ring-2 ring-cyan-400/50" : "border-white/20"
+                      }`}
+                      style={{ backgroundColor: p.hex }}
+                    />
+                  ))}
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="text-xs text-white/50">Eigene Farbe</label>
+                  <input
+                    type="color"
+                    value={chatTextColor ?? "#cbd5e1"}
+                    onChange={(e) => setChatTextColor(e.target.value)}
+                    className="h-9 w-14 cursor-pointer rounded-lg border border-white/15 bg-white/5"
+                    aria-label="Freie Farbwahl für Chat-Text"
+                  />
+                </div>
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 space-y-3">

@@ -29,6 +29,8 @@ export type User = {
   statusMessage: string;
   /** Status je Bereich (familie, feuerwehr, …); leer = nur globaler `status` */
   statusBySection: Record<string, PresenceStatus>;
+  /** Hex #RRGGBB für Chat-Text dieses Nutzers; null = Standard (App-Farbe) */
+  chatTextColor: string | null;
 };
 
 /** Private Kontaktliste nur für ownerUserId; andere Nutzer sehen sie nicht. */

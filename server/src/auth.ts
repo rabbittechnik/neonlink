@@ -99,6 +99,7 @@ export function restoreAuthState(data: AuthPersistV1 | null | undefined): void {
 
 /** Antwort-DTO ohne sensible Felder (Kontext: generisch). */
 export function toPublicUser(user: User) {
+  const c = user.chatTextColor;
   return {
     id: user.id,
     displayName: user.displayName,
@@ -109,6 +110,7 @@ export function toPublicUser(user: User) {
     bio: user.bio.trim().slice(0, 2000),
     statusMessage: user.statusMessage.trim().slice(0, 280),
     statusBySection: user.statusBySection,
+    chatTextColor: typeof c === "string" && /^#[0-9A-Fa-f]{6}$/.test(c) ? c : null,
   };
 }
 
@@ -130,5 +132,9 @@ export function toPrivateProfile(user: User) {
     statusMessage: user.statusMessage,
     friendCode: user.friendCode,
     avatarUrl: user.avatarUrl ?? null,
+    chatTextColor:
+      typeof user.chatTextColor === "string" && /^#[0-9A-Fa-f]{6}$/.test(user.chatTextColor)
+        ? user.chatTextColor
+        : null,
   };
 }

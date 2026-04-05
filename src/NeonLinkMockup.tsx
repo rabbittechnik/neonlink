@@ -167,6 +167,8 @@ type ServerUser = {
   statusBySection?: Record<string, string>;
   contactEmail?: string | null;
   phoneMasked?: string | null;
+  /** Hex #RRGGBB, Chat-Textfarbe des Absenders */
+  chatTextColor?: string | null;
 };
 
 type FriendGroup =
@@ -198,6 +200,44 @@ function formatBytes(n: number) {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function senderChatTextHex(
+  senderId: string | undefined,
+  selfId: string | undefined,
+  selfColor: string | null | undefined,
+  byId: Record<string, ServerUser>
+): string | undefined {
+  if (!senderId) return undefined;
+  const raw =
+    senderId === selfId ? (selfColor ?? byId[senderId]?.chatTextColor) : byId[senderId]?.chatTextColor;
+  if (!raw || !/^#[0-9A-Fa-f]{6}$/.test(raw)) return undefined;
+  return raw;
+}
+
+/** Rand + Hintergrund für fremde Nachrichten: bei gesetzter Chat-Textfarbe daraus abgeleitet, sonst stabil pro userId. */
+function otherUserBubbleStyle(
+  senderId: string | undefined,
+  textHex: string | undefined
+): { borderColor: string; background: string } {
+  if (textHex && /^#[0-9A-Fa-f]{6}$/i.test(textHex)) {
+    const c = textHex.startsWith("#") ? textHex : `#${textHex}`;
+    const r = parseInt(c.slice(1, 3), 16);
+    const g = parseInt(c.slice(3, 5), 16);
+    const b = parseInt(c.slice(5, 7), 16);
+    return {
+      borderColor: `rgba(${r},${g},${b},0.45)`,
+      background: `linear-gradient(135deg, rgba(${r},${g},${b},0.16) 0%, rgba(15,23,42,0.52) 100%)`,
+    };
+  }
+  const key = senderId ?? "unknown";
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  const hue = h % 360;
+  return {
+    borderColor: `hsla(${hue}, 52%, 58%, 0.42)`,
+    background: `linear-gradient(135deg, hsla(${hue}, 40%, 26%, 0.48) 0%, hsla(${hue}, 24%, 14%, 0.38) 100%)`,
+  };
 }
 
 const STATUS_PILL: Record<
@@ -322,6 +362,7 @@ export default function NeonLinkMockup() {
   const joinedWorkspaceRoomsRef = useRef<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messageInputRef = useRef<HTMLInputElement | null>(null);
+  const chatScrollEndRef = useRef<HTMLDivElement | null>(null);
   const usersByIdRef = useRef<Record<string, ServerUser>>({});
   const senderUserIdRef = useRef("");
   const currentUserRef = useRef<ServerUser | null>(null);
@@ -417,6 +458,17 @@ export default function NeonLinkMockup() {
     () => chatMessages.filter((message) => message.roomId === (activeRoom?.id ?? "")),
     [chatMessages, activeRoom]
   );
+
+  useEffect(() => {
+    const end = chatScrollEndRef.current;
+    if (!end) return;
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        end.scrollIntoView({ block: "end", behavior: "auto" });
+      });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [roomMessages, activeRoomId]);
   const replyTarget = useMemo(
     () => (replyToMessageId ? roomMessages.find((m) => m.id === replyToMessageId) ?? null : null),
     [replyToMessageId, roomMessages]
@@ -935,6 +987,7 @@ export default function NeonLinkMockup() {
                 statusBySection?: Record<string, string>;
                 contactEmail?: string | null;
                 phoneMasked?: string | null;
+                chatTextColor?: string | null;
               } | null;
             }>
           >(`/workspaces/${wsId}/members`);
@@ -963,6 +1016,7 @@ export default function NeonLinkMockup() {
                   statusBySection: u.statusBySection,
                   contactEmail: u.contactEmail,
                   phoneMasked: u.phoneMasked,
+                  chatTextColor: u.chatTextColor ?? null,
                 };
               }
             }
@@ -1042,6 +1096,7 @@ export default function NeonLinkMockup() {
               statusBySection?: Record<string, string>;
               contactEmail?: string | null;
               phoneMasked?: string | null;
+              chatTextColor?: string | null;
             }
           >
         >(`/friends/${userId}`),
@@ -1063,6 +1118,7 @@ export default function NeonLinkMockup() {
             statusBySection: f.statusBySection,
             contactEmail: f.contactEmail,
             phoneMasked: f.phoneMasked,
+            chatTextColor: f.chatTextColor ?? null,
           };
         }
         return next;
@@ -2304,19 +2360,37 @@ export default function NeonLinkMockup() {
                         : m.avatarUrl;
                   const openSenderProfile =
                     Boolean(m.senderUserId && m.senderUserId !== currentUser?.id);
+                  const senderHex = senderChatTextHex(
+                    m.senderUserId,
+                    currentUser?.id,
+                    currentUser?.chatTextColor,
+                    usersById
+                  );
+                  const isMine = Boolean(
+                    currentUser?.id &&
+                      (m.senderUserId === currentUser.id || (!m.senderUserId && m.from === "Du"))
+                  );
+                  const peerBubble =
+                    !isMine && !m.calendarAnnouncement
+                      ? otherUserBubbleStyle(m.senderUserId, senderHex)
+                      : null;
+                  const bubbleMax = "max-w-[min(92%,24rem)]";
                   return (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.08 }}
                     key={`${m.from}-${m.time}-${i}`}
-                    className="group flex gap-3"
+                    className={`group flex gap-3 w-full ${isMine ? "flex-row-reverse" : "flex-row"}`}
                   >
                     {openSenderProfile ? (
                       <button
                         type="button"
                         onClick={() => setPeerProfileUserId(m.senderUserId!)}
-                        className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-white/15 p-0 bg-transparent cursor-pointer hover:ring-2 hover:ring-cyan-400/40 transition-shadow"
+                        className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-white/15 p-0 bg-transparent cursor-pointer hover:ring-2 hover:ring-cyan-400/40 transition-shadow"
+                        style={
+                          peerBubble ? { borderColor: peerBubble.borderColor } : undefined
+                        }
                         title="Profil anzeigen"
                       >
                         {msgAvatarSrc ? (
@@ -2338,18 +2412,32 @@ export default function NeonLinkMockup() {
                         )}
                       </Avatar>
                     )}
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 text-sm">
+                    <div
+                      className={`flex-1 min-w-0 flex flex-col ${isMine ? "items-end" : "items-stretch"}`}
+                    >
+                      <div
+                        className={`flex flex-wrap items-center gap-2 text-sm w-full ${
+                          isMine ? "justify-end" : ""
+                        }`}
+                      >
                         {openSenderProfile ? (
                           <button
                             type="button"
                             onClick={() => setPeerProfileUserId(m.senderUserId!)}
-                            className="font-semibold text-left hover:text-cyan-200 transition-colors"
+                            className={`font-semibold text-left transition-colors ${
+                              senderHex ? "hover:opacity-90" : "hover:text-cyan-200"
+                            }`}
+                            style={senderHex ? { color: senderHex } : undefined}
                           >
                             {m.from}
                           </button>
                         ) : (
-                          <span className="font-semibold">{m.from}</span>
+                          <span
+                            className={`font-semibold ${senderHex ? "" : "text-white"}`}
+                            style={senderHex ? { color: senderHex } : undefined}
+                          >
+                            {m.from}
+                          </span>
                         )}
                         <span
                           className={`h-2 w-2 rounded-full ${
@@ -2364,7 +2452,26 @@ export default function NeonLinkMockup() {
                         />
                         <span className="text-white/40">{m.time}</span>
                       </div>
-                      <div className="mt-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-relaxed text-white/90 shadow-lg shadow-black/10">
+                      <div
+                        className={`mt-1 w-fit ${bubbleMax} rounded-2xl border px-4 py-3 text-sm leading-relaxed shadow-lg shadow-black/10 ${
+                          isMine
+                            ? "border-cyan-400/35 bg-gradient-to-br from-cyan-600/25 to-slate-900/50"
+                            : m.calendarAnnouncement
+                              ? "border-white/10 bg-white/5"
+                              : ""
+                        } ${
+                          senderHex && !m.calendarAnnouncement ? "" : "text-white/90"
+                        }`}
+                        style={{
+                          ...(senderHex && !m.calendarAnnouncement ? { color: senderHex } : {}),
+                          ...(peerBubble
+                            ? {
+                                borderColor: peerBubble.borderColor,
+                                background: peerBubble.background,
+                              }
+                            : {}),
+                        }}
+                      >
                         {m.replyTo ? (
                           <div className="mb-2 rounded-lg border border-white/10 bg-black/20 px-2 py-1 text-[11px] text-white/70">
                             <span className="text-cyan-200/90">{m.replyTo.from}</span>
@@ -2379,7 +2486,7 @@ export default function NeonLinkMockup() {
                         )}
                       </div>
                       {m.attachments?.length ? (
-                        <div className="mt-2 space-y-2">
+                        <div className={`mt-2 space-y-2 w-full ${bubbleMax} ${isMine ? "ml-auto" : ""}`}>
                           {m.attachments.map((att) => (
                             <div
                               key={att.id}
@@ -2405,7 +2512,9 @@ export default function NeonLinkMockup() {
                         </div>
                       ) : !m.calendarAnnouncement &&
                         (m.text.toLowerCase().includes("zip") || m.text.toLowerCase().includes("bilder")) ? (
-                        <div className="mt-2 rounded-xl border border-white/10 bg-white/5 p-2 text-xs flex items-center gap-2">
+                        <div
+                          className={`mt-2 rounded-xl border border-white/10 bg-white/5 p-2 text-xs flex items-center gap-2 ${bubbleMax} ${isMine ? "ml-auto" : ""}`}
+                        >
                           <File className="h-4 w-4 text-cyan-200" />
                           <div>
                             <div>Anhang vorhanden (Demo)</div>
@@ -2414,7 +2523,9 @@ export default function NeonLinkMockup() {
                         </div>
                       ) : null}
                       <div
-                        className={`mt-1 items-center gap-2 text-[11px] text-white/60 ${
+                        className={`mt-1 items-center gap-2 text-[11px] text-white/60 w-full ${
+                          isMine ? "justify-end" : ""
+                        } ${
                           reactionBarForMessageId === m.id || messageOverflowId === m.id
                             ? "flex"
                             : "hidden group-hover:flex"
@@ -2454,7 +2565,7 @@ export default function NeonLinkMockup() {
                           </button>
                           {messageOverflowId === m.id ? (
                             <div
-                              className="absolute left-0 top-full z-20 mt-1 min-w-[10.5rem] rounded-xl border border-white/15 bg-[#0f172a] py-1 shadow-xl shadow-black/50"
+                              className={`absolute ${isMine ? "right-0" : "left-0"} top-full z-20 mt-1 min-w-[10.5rem] rounded-xl border border-white/15 bg-[#0f172a] py-1 shadow-xl shadow-black/50`}
                               onClick={(e) => e.stopPropagation()}
                               onKeyDown={(e) => e.stopPropagation()}
                             >
@@ -2476,7 +2587,9 @@ export default function NeonLinkMockup() {
                         </div>
                       </div>
                       {reactionBarForMessageId === m.id ? (
-                        <div className="mt-1.5 flex flex-wrap gap-1">
+                        <div
+                          className={`mt-1.5 flex flex-wrap gap-1 w-full ${isMine ? "justify-end" : ""}`}
+                        >
                           {(["👍", "❤️", "😊", "🙏", "👏"] as const).map((emoji) => (
                             <button
                               key={emoji}
@@ -2503,6 +2616,7 @@ export default function NeonLinkMockup() {
                 {messageInput.trim().length > 0 ? (
                   <div className="text-xs text-cyan-200/80">Du tippst gerade...</div>
                 ) : null}
+                <div ref={chatScrollEndRef} className="h-px w-full shrink-0" aria-hidden />
               </CardContent>
               <div className="border-t border-white/10 p-4">
                 {replyToMessageId ? (

@@ -228,6 +228,7 @@ app.patch("/auth/me/profile", requireAuth, (req, res) => {
     contactEmail?: string;
     emailVisibility?: string;
     phoneVisibility?: string;
+    chatTextColor?: string | null;
   };
   let updated = false;
   if (body.phone !== undefined) {
@@ -267,6 +268,12 @@ app.patch("/auth/me/profile", requireAuth, (req, res) => {
   }
   if (body.phoneVisibility !== undefined) {
     profilePatch.phoneVisibility = body.phoneVisibility as ContactVisibility;
+  }
+  if (body.chatTextColor !== undefined) {
+    profilePatch.chatTextColor =
+      body.chatTextColor === null || body.chatTextColor === ""
+        ? null
+        : String(body.chatTextColor);
   }
   if (Object.keys(profilePatch).length > 0) {
     const patchResult = patchUserProfile(req.authUserId!, profilePatch);

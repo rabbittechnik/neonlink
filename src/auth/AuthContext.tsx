@@ -30,6 +30,8 @@ export type AuthUser = {
   statusMessage: string;
   friendCode: string;
   avatarUrl?: string | null;
+  /** Hex #RRGGBB oder null = Standardfarbe im Chat */
+  chatTextColor: string | null;
 };
 
 export type ProfilePatch = Partial<{
@@ -43,6 +45,7 @@ export type ProfilePatch = Partial<{
   phoneVisibility: ContactVisibility;
   phone: string;
   avatarUrl: string | null;
+  chatTextColor: string | null;
 }>;
 
 function normalizeAuthUser(raw: Record<string, unknown>): AuthUser {
@@ -71,6 +74,12 @@ function normalizeAuthUser(raw: Record<string, unknown>): AuthUser {
     statusMessage: String(raw.statusMessage ?? ""),
     friendCode: String(raw.friendCode ?? ""),
     avatarUrl: raw.avatarUrl === null || raw.avatarUrl === undefined ? null : String(raw.avatarUrl),
+    chatTextColor: (() => {
+      const c = raw.chatTextColor;
+      if (c === null || c === undefined || c === "") return null;
+      const s = String(c).trim();
+      return /^#[0-9A-Fa-f]{6}$/.test(s) ? s : null;
+    })(),
   };
 }
 

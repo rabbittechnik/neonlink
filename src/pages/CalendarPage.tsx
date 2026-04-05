@@ -45,6 +45,15 @@ const SECTION_ICONS: Record<SectionId, LucideIcon> = {
 
 const COL_GEMEINSAM = "__gemeinsam__";
 const COL_GETEILT = "__geteilt__";
+const COL_MEMBER_PREFIX = "col:member:";
+
+function memberColumnId(userId: string): string {
+  return `${COL_MEMBER_PREFIX}${userId}`;
+}
+
+function slotLabelIsGemeinsam(label: string): boolean {
+  return label.toLowerCase().trim() === "gemeinsam";
+}
 
 /** Dunkles Select: color-scheme dark + Hintergrund, damit Optionen unter Windows/Chrome lesbar bleiben. */
 const SELECT_DARK =
@@ -79,32 +88,36 @@ function eventTouchesDay(ev: ApiCalendarEvent, d: Date): boolean {
 
 function assignColumn(
   ev: ApiCalendarEvent,
-  viewerId: string,
-  mySlots: FamilyCalendarSlot[],
-  myDisplayName: string,
-  peerUserIds: string[]
+  slots: FamilyCalendarSlot[],
+  members: Array<{ userId: string; displayName: string }>
 ): string {
-  if (ev.createdByUserId !== viewerId) {
-    if (ev.familySlotId === null) return COL_GEMEINSAM;
-    if (ev.familySlotId === FAMILY_CALENDAR_SELF_SLOT_ID) {
-      if (peerUserIds.includes(ev.createdByUserId)) {
-        return `peer-${ev.createdByUserId}`;
-      }
-      const theirs = (ev.familySlotLabel ?? "").toLowerCase().trim();
-      const mine = myDisplayName.toLowerCase().trim();
-      if (theirs && mine && theirs === mine) return FAMILY_CALENDAR_SELF_SLOT_ID;
-      return COL_GETEILT;
-    }
-    const label = (ev.familySlotLabel ?? "").toLowerCase().trim();
-    if (label) {
-      const match = mySlots.find((s) => s.label.toLowerCase().trim() === label);
-      if (match) return match.id;
-    }
-    return COL_GETEILT;
+  const memberIds = new Set(members.map((m) => m.userId));
+
+  const uidFromSlotId = (slotId: string | null): string | undefined => {
+    if (!slotId || slotId === FAMILY_CALENDAR_SELF_SLOT_ID) return undefined;
+    const s = slots.find((x) => x.id === slotId);
+    if (s && memberIds.has(s.ownerUserId) && !slotLabelIsGemeinsam(s.label)) return s.ownerUserId;
+    return undefined;
+  };
+
+  if (ev.familySlotId === null) return COL_GEMEINSAM;
+
+  if (ev.familySlotId === FAMILY_CALENDAR_SELF_SLOT_ID) {
+    return memberColumnId(ev.createdByUserId);
   }
-  if (!ev.familySlotId) return COL_GEMEINSAM;
-  if (ev.familySlotId === FAMILY_CALENDAR_SELF_SLOT_ID) return FAMILY_CALENDAR_SELF_SLOT_ID;
-  if (mySlots.some((s) => s.id === ev.familySlotId)) return ev.familySlotId;
+
+  const uid = uidFromSlotId(ev.familySlotId);
+  if (uid) return memberColumnId(uid);
+
+  const label = (ev.familySlotLabel ?? "").toLowerCase().trim();
+  if (label && label !== "gemeinsam") {
+    const mem = members.find((m) => m.displayName.toLowerCase().trim() === label);
+    if (mem) return memberColumnId(mem.userId);
+    const sl = slots.find((s) => s.label.toLowerCase().trim() === label);
+    if (sl && memberIds.has(sl.ownerUserId) && !slotLabelIsGemeinsam(sl.label))
+      return memberColumnId(sl.ownerUserId);
+  }
+
   return COL_GETEILT;
 }
 
@@ -146,9 +159,19 @@ function isCalendarRangeKind(k: CalendarEventKind): boolean {
 }
 
 /** Anzeigename der Familien-Spalte (für „Wer hat Urlaub/Ferien?“). */
-function familySlotOwnerLabel(ev: ApiCalendarEvent, selfColumnFallback: string): string {
+function familySlotOwnerLabel(
+  ev: ApiCalendarEvent,
+  members: Array<{ userId: string; displayName: string }>,
+  selfColumnFallback: string
+): string {
   if (!ev.familySlotId) return "Gemeinsam";
-  if (ev.familySlotId === FAMILY_CALENDAR_SELF_SLOT_ID) return ev.familySlotLabel ?? selfColumnFallback;
+  if (ev.familySlotId === FAMILY_CALENDAR_SELF_SLOT_ID) {
+    return (
+      members.find((m) => m.userId === ev.createdByUserId)?.displayName ??
+      ev.familySlotLabel ??
+      selfColumnFallback
+    );
+  }
   return ev.familySlotLabel ?? "Person";
 }
 
@@ -173,9 +196,6 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
   const [view, setView] = useState<"liste" | "familie">("liste");
-  const [slotsEditorOpen, setSlotsEditorOpen] = useState(false);
-  const [slotDraft, setSlotDraft] = useState<Array<{ label: string }>>([]);
-  const [savingSlots, setSavingSlots] = useState(false);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [savingEvent, setSavingEvent] = useState(false);
@@ -296,9 +316,20 @@ export default function CalendarPage() {
     }
   }, [workspaces, cursor.y, cursor.m, fetchJson]);
 
+  const memberIdsKey = useMemo(
+    () =>
+      members
+        .map((m) => m.userId)
+        .slice()
+        .sort()
+        .join(","),
+    [members]
+  );
+
   useEffect(() => {
+    if (!workspaceId) return;
     void reloadSlots();
-  }, [reloadSlots]);
+  }, [workspaceId, memberIdsKey, reloadSlots]);
 
   useEffect(() => {
     void reloadEvents();
@@ -320,29 +351,22 @@ export default function CalendarPage() {
 
   const myColumnLabel = user?.displayName ?? "Mein Name";
 
-  const peerUserIds = useMemo(
-    () => members.filter((m) => m.userId !== mine).map((m) => m.userId),
-    [members, mine]
+  const membersSorted = useMemo(
+    () => members.slice().sort((a, b) => a.displayName.localeCompare(b.displayName, "de")),
+    [members]
   );
 
   const columns = useMemo(() => {
-    const peersSorted = members
-      .filter((m) => m.userId !== mine)
-      .slice()
-      .sort((a, b) => a.displayName.localeCompare(b.displayName, "de"));
-    const peerCols = peersSorted.map((m) => ({
-      id: `peer-${m.userId}`,
+    const memberCols = membersSorted.map((m) => ({
+      id: memberColumnId(m.userId),
       label: m.displayName,
     }));
-    const base: Array<{ id: string; label: string }> = [
+    return [
       { id: COL_GEMEINSAM, label: "Gemeinsam" },
-      { id: FAMILY_CALENDAR_SELF_SLOT_ID, label: myColumnLabel },
-      ...peerCols,
+      ...memberCols,
+      { id: COL_GETEILT, label: "Geteilt / andere" },
     ];
-    slots.forEach((s) => base.push({ id: s.id, label: s.label }));
-    base.push({ id: COL_GETEILT, label: "Geteilt / andere" });
-    return base;
-  }, [slots, myColumnLabel, members, mine]);
+  }, [membersSorted]);
 
   const openNewModal = () => {
     setEditId(null);
@@ -355,7 +379,8 @@ export default function CalendarPage() {
     setFormEnd("");
     setFormAllDay(false);
     setFormLocation("");
-    setFormSlotId("");
+    const ownSlot = slots.find((s) => s.ownerUserId === mine && !slotLabelIsGemeinsam(s.label));
+    setFormSlotId(ownSlot?.id ?? FAMILY_CALENDAR_SELF_SLOT_ID);
     setFormVis({});
     setFormLegacySlot(null);
     setModalOpen(true);
@@ -373,7 +398,11 @@ export default function CalendarPage() {
     setFormEnd(ev.endsAt ? toDatetimeLocal(ev.endsAt) : "");
     setFormAllDay(ev.allDay);
     setFormLocation(ev.location);
-    const sid = ev.familySlotId ?? "";
+    let sid = ev.familySlotId ?? "";
+    if (sid === FAMILY_CALENDAR_SELF_SLOT_ID) {
+      const ownSlot = slots.find((s) => s.ownerUserId === mine && !slotLabelIsGemeinsam(s.label));
+      if (ownSlot) sid = ownSlot.id;
+    }
     const slotKnown =
       sid === "" ||
       sid === FAMILY_CALENDAR_SELF_SLOT_ID ||
@@ -388,27 +417,6 @@ export default function CalendarPage() {
     });
     setFormVis(v);
     setModalOpen(true);
-  };
-
-  const submitSlots = async () => {
-    if (!workspaceId) return;
-    setSavingSlots(true);
-    try {
-      const res = await authFetch(`/workspaces/${workspaceId}/calendar/family-slots`, {
-        method: "PUT",
-        body: JSON.stringify({
-          slots: slotDraft
-            .filter((r) => r.label.trim())
-            .slice(0, 6)
-            .map((r) => ({ label: r.label.trim() })),
-        }),
-      });
-      if (!res.ok) return;
-      setSlotsEditorOpen(false);
-      await reloadSlots();
-    } finally {
-      setSavingSlots(false);
-    }
   };
 
   const submitEvent = async () => {
@@ -475,11 +483,6 @@ export default function CalendarPage() {
     }
   };
 
-  const openFamilySlotsEditor = useCallback(() => {
-    setSlotDraft(slots.length ? slots.map((s) => ({ label: s.label })) : []);
-    setSlotsEditorOpen(true);
-  }, [slots]);
-
   const deleteEditingEvent = async () => {
     if (!editId) return;
     if (!confirm("Termin wirklich löschen?")) return;
@@ -522,8 +525,9 @@ export default function CalendarPage() {
           Hier siehst du <strong>alle Termine</strong>, die für dich in <strong>allen Workspaces</strong> sichtbar sind
           (z.&nbsp;B. Feuerwehr-Übung im Familien-Kalender mit Rubrik-Farbe). Neu anlegen tust du im gewählten Workspace
           unten. Pro Termin wählst du die <strong>Rubrik</strong> (Farbe & Symbol) und optional, bei wem der Eintrag{" "}
-          <strong>mit angezeigt</strong> wird. Im Familienkalender gibt es fest <strong>Gemeinsam</strong> und deine
-          Spalte mit <strong>Profilnamen</strong>; zusätzlich bis zu <strong>6 weitere Personen</strong>.{" "}
+          <strong>mit angezeigt</strong> wird. Im <strong>Familienkalender</strong> gibt es eine Spalte{" "}
+          <strong>Gemeinsam</strong> und <strong>automatisch eine Namensspalte pro Workspace-Mitglied</strong> — neue
+          Familienmitglieder erscheinen dort, sobald sie dem gemeinsamen Bereich beitreten.{" "}
           <strong>Urlaub</strong>/<strong>Ferien</strong> als durchgehender Balken; in der <strong>Monatsliste</strong>{" "}
           bei Urlaub/Ferien <strong>Wer:</strong> (Spalte oder Gemeinsam).
         </p>
@@ -590,16 +594,6 @@ export default function CalendarPage() {
                 <Plus className="h-4 w-4 mr-2" />
                 Termin · Urlaub · Ferien
               </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="rounded-xl border border-fuchsia-400/35 bg-fuchsia-500/10 text-fuchsia-100"
-                onClick={() => openFamilySlotsEditor()}
-              >
-                <Users className="h-4 w-4 mr-2" />
-                Personen-Spalten
-                <span className="ml-1.5 text-xs text-fuchsia-200/80">(max. 6)</span>
-              </Button>
             </div>
 
             {listError ? <p className="text-sm text-red-300 mb-4">{listError}</p> : null}
@@ -651,7 +645,7 @@ export default function CalendarPage() {
                                 <div className="text-xs text-white/50 mt-0.5">
                                   {showRangeOwnerInList(ev) ? (
                                     <span className="text-sky-300/90 font-medium">
-                                      Wer: {familySlotOwnerLabel(ev, myColumnLabel)}
+                                      Wer: {familySlotOwnerLabel(ev, members, myColumnLabel)}
                                     </span>
                                   ) : null}
                                   {showRangeOwnerInList(ev) ? " · " : null}
@@ -716,7 +710,7 @@ export default function CalendarPage() {
                     const rangeBarsSource = events.filter(
                       (ev) =>
                         isCalendarRangeKind(ev.kind) &&
-                        assignColumn(ev, mine, slots, myColumnLabel, peerUserIds) === col.id
+                        assignColumn(ev, slots, members) === col.id
                     );
                     const vacationBars = rangeBarsSource
                       .map((ev) => {
@@ -783,7 +777,7 @@ export default function CalendarPage() {
                               (ev) =>
                                 !isCalendarRangeKind(ev.kind) &&
                                 eventTouchesDay(ev, d) &&
-                                assignColumn(ev, mine, slots, myColumnLabel, peerUserIds) === col.id
+                                assignColumn(ev, slots, members) === col.id
                             );
                             return (
                               <div
@@ -840,84 +834,6 @@ export default function CalendarPage() {
           </>
         )}
       </div>
-
-      {slotsEditorOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-          <Card className="w-full max-w-md border border-fuchsia-400/25 bg-[#0a1020] text-white max-h-[90vh] overflow-y-auto">
-            <CardHeader>
-              <CardTitle>Familien-Spalten (max. 6)</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-xs text-white/55">
-                „Gemeinsam“ und dein Profilname sind immer als Spalten dabei und hier nicht änderbar. Darunter bis zu 6
-                weitere Namen — mit <strong>+ Person</strong> hinzufügen, mit × entfernen.
-              </p>
-              <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                <div className="flex gap-2 items-center">
-                  <Input
-                    value="Gemeinsam"
-                    readOnly
-                    disabled
-                    className="flex-1 bg-white/5 border-white/10 opacity-80 cursor-not-allowed"
-                  />
-                </div>
-                <div className="flex gap-2 items-center">
-                  <Input
-                    value={myColumnLabel}
-                    readOnly
-                    disabled
-                    className="flex-1 bg-white/5 border-white/10 opacity-80 cursor-not-allowed"
-                  />
-                </div>
-              </div>
-              {slotDraft.map((row, i) => (
-                <div key={i} className="flex gap-2 items-center">
-                  <Input
-                    value={row.label}
-                    onChange={(e) =>
-                      setSlotDraft((prev) =>
-                        prev.map((r, j) => (j === i ? { ...r, label: e.target.value } : r))
-                      )
-                    }
-                    placeholder={`Person ${i + 1}`}
-                    className="flex-1 bg-white/5 border-white/15"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="shrink-0 text-red-300"
-                    onClick={() => setSlotDraft((prev) => prev.filter((_, j) => j !== i))}
-                  >
-                    ×
-                  </Button>
-                </div>
-              ))}
-              {slotDraft.length < 6 ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setSlotDraft((p) => [...p, { label: "" }])}
-                >
-                  + Person
-                </Button>
-              ) : null}
-              <div className="flex gap-2 pt-2">
-                <Button
-                  type="button"
-                  disabled={savingSlots}
-                  onClick={() => void submitSlots()}
-                  className="flex-1 rounded-xl bg-fuchsia-500/25 border border-fuchsia-400/35"
-                >
-                  {savingSlots ? <Loader2 className="h-4 w-4 animate-spin" /> : "Speichern"}
-                </Button>
-                <Button type="button" variant="ghost" onClick={() => setSlotsEditorOpen(false)}>
-                  Abbrechen
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      ) : null}
 
       {modalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
@@ -1012,7 +928,7 @@ export default function CalendarPage() {
                   {formKind === "ferien" ? (
                     <>
                       Titel automatisch: <strong>Gemeinsam</strong> / deine Spalte → <strong>Ferien</strong>, sonst{" "}
-                      <strong>Ferien von …</strong> (z. B. Kinderspalte).
+                      <strong>Ferien von …</strong> (Name der gewählten Personenspalte).
                     </>
                   ) : (
                     <>
@@ -1066,25 +982,11 @@ export default function CalendarPage() {
                 />
               </div>
               <div>
-                <div className="flex flex-wrap items-end justify-between gap-2">
-                  <label className="text-xs text-white/55">
-                    {formKind === "vacation" || formKind === "ferien"
-                      ? "Spalte (Person)"
-                      : "Spalte im Familienkalender (optional)"}
-                  </label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="h-8 px-2 text-xs text-fuchsia-300 hover:text-fuchsia-100 hover:bg-fuchsia-500/15 shrink-0"
-                    onClick={() => {
-                      setModalOpen(false);
-                      openFamilySlotsEditor();
-                    }}
-                  >
-                    <Plus className="h-3.5 w-3.5 mr-1" />
-                    Personen-Spalte
-                  </Button>
-                </div>
+                <label className="text-xs text-white/55">
+                  {formKind === "vacation" || formKind === "ferien"
+                    ? "Spalte (Person)"
+                    : "Spalte im Familienkalender (optional)"}
+                </label>
                 <select
                   className={`mt-1 w-full ${SELECT_DARK}`}
                   value={formSlotId}
@@ -1098,23 +1000,26 @@ export default function CalendarPage() {
                       ? "Gemeinsam (keine Personen-Spalte)"
                       : "Gemeinsam"}
                   </option>
-                  <option value={FAMILY_CALENDAR_SELF_SLOT_ID} className={OPTION_DARK}>
-                    {myColumnLabel}
-                  </option>
+                  {membersSorted.map((m) => {
+                    const slot = slots.find((s) => s.ownerUserId === m.userId && !slotLabelIsGemeinsam(s.label));
+                    const value =
+                      slot?.id ?? (m.userId === mine ? FAMILY_CALENDAR_SELF_SLOT_ID : "");
+                    if (!value) return null;
+                    return (
+                      <option key={m.userId} value={value} className={OPTION_DARK}>
+                        {m.displayName}
+                      </option>
+                    );
+                  })}
                   {formLegacySlot ? (
                     <option value={formLegacySlot.id} className={OPTION_DARK}>
                       {formLegacySlot.label} (bisherige Zuordnung)
                     </option>
                   ) : null}
-                  {slots.map((s) => (
-                    <option key={s.id} value={s.id} className={OPTION_DARK}>
-                      {s.label}
-                    </option>
-                  ))}
                 </select>
                 <p className="text-[11px] text-white/40 mt-1">
-                  Zusätzliche Spalten (Kind, Oma, …) legst du über „Personen-Spalte“ an — nicht über die Checkboxen
-                  unten (das sind Workspace-Mitglieder).
+                  Eine Spalte pro Workspace-Mitglied — neue Mitglieder erscheinen automatisch, sobald sie dem Bereich
+                  beitreten.
                 </p>
               </div>
               <div>
