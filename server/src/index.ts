@@ -15,7 +15,7 @@ import {
   toPrivateProfile,
   verifyPassword,
 } from "./auth.js";
-import type { ContactVisibility, FinanceCategory, PresenceStatus } from "./types.js";
+import type { ContactVisibility, FinanceCategory, Message, PresenceStatus } from "./types.js";
 import {
   addPersonalContact,
   attachmentRegistry,
@@ -556,6 +556,8 @@ app.post("/workspaces/:id/rooms", requireAuth, (req, res) => {
       otherUserId,
     });
     if (!result.ok) return res.status(400).json({ error: result.reason });
+    /** Empfänger bekommt den Raum live in der Liste (sonst kein room:join → keine Socket-Events). */
+    socketIo?.to(`user:${otherUserId}`).emit("chat:privateRoomUpsert", { room: result.room });
     return res.status(result.created ? 201 : 200).json({ room: result.room, created: result.created });
   }
 
@@ -1018,7 +1020,7 @@ app.post("/rooms/:id/messages", requireAuth, (req, res) => {
     replyToId: body.replyToId,
     attachments: body.attachments,
   });
-  io.to(`room:${req.params.id}`).emit("chat:messageCreated", message);
+  emitChatMessageCreated(message);
   return res.status(201).json(message);
 });
 
@@ -1035,7 +1037,7 @@ app.post("/rooms/:roomId/messages/:messageId/reactions", requireAuth, (req, res)
   }
   const toggled = toggleMessageReaction(msg.id, req.authUserId!, emoji);
   if (!toggled.ok) return res.status(404).json({ error: toggled.reason });
-  io.to(`room:${msg.roomId}`).emit("chat:messageUpdated", toggled.message);
+  emitChatMessageUpdated(toggled.message);
   return res.json(toggled.message);
 });
 
@@ -1656,8 +1658,36 @@ const io = new Server(httpServer, {
 });
 socketIo = io;
 
-setChatMessageBroadcaster((roomId, message) => {
-  io.to(`room:${roomId}`).emit("chat:messageCreated", message);
+function emitChatMessageCreated(message: Message) {
+  const sio = socketIo;
+  if (!sio) return;
+  const roomId = message.roomId;
+  const room = findRoomById(roomId);
+  /** Privat: nur user:${id} — Empfänger hat oft noch kein room:join; Gruppen/Global: klassischer Raum. */
+  if (room?.chatType === "private" && room.participants.length) {
+    for (const pid of room.participants) {
+      sio.to(`user:${pid}`).emit("chat:messageCreated", message);
+    }
+  } else {
+    sio.to(`room:${roomId}`).emit("chat:messageCreated", message);
+  }
+}
+
+function emitChatMessageUpdated(message: Message) {
+  const sio = socketIo;
+  if (!sio) return;
+  const room = findRoomById(message.roomId);
+  if (room?.chatType === "private" && room.participants.length) {
+    for (const pid of room.participants) {
+      sio.to(`user:${pid}`).emit("chat:messageUpdated", message);
+    }
+  } else {
+    sio.to(`room:${message.roomId}`).emit("chat:messageUpdated", message);
+  }
+}
+
+setChatMessageBroadcaster((_roomId, message) => {
+  emitChatMessageCreated(message);
 });
 
 io.use((socket, next) => {
@@ -1724,7 +1754,7 @@ io.on("connection", (socket) => {
         replyToId: payload.replyToId,
         attachments: payload.attachments,
       });
-      io.to(`room:${roomId}`).emit("chat:messageCreated", message);
+      emitChatMessageCreated(message);
     }
   );
 

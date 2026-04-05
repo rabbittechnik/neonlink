@@ -422,6 +422,7 @@ export default function NeonLinkMockup() {
   const currentUserRef = useRef<ServerUser | null>(null);
   const activeRoomIdRef = useRef(activeRoomId);
   const activeSectionRef = useRef(activeSection);
+  const activeWorkspaceIdRef = useRef<string | null>(activeWorkspaceId);
   const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipNextUnreadPersistRef = useRef(false);
   const prevActiveRoomForTypingRef = useRef<string | null>(null);
@@ -479,12 +480,14 @@ export default function NeonLinkMockup() {
     ),
     [rooms, lastActivityByRoom]
   );
+  /** Privatchats workspace-weit (Rubrik des Absenders kann abweichen – sonst sieht der Empfänger den Chat nicht). */
   const privateRooms = useMemo(
-    () => sortByActivity(
-      rooms.filter((r) => r.chatType === "private"),
-      lastActivityByRoom
-    ),
-    [rooms, lastActivityByRoom]
+    () =>
+      sortByActivity(
+        sourceRooms.filter((r) => r.workspaceId === workspaceScopeId && r.chatType === "private"),
+        lastActivityByRoom
+      ),
+    [sourceRooms, workspaceScopeId, lastActivityByRoom]
   );
 
   const userNamesById = useMemo(() => {
@@ -505,10 +508,12 @@ export default function NeonLinkMockup() {
     () => workspaceChatMembers.filter((m) => m.id !== currentUser?.id),
     [workspaceChatMembers, currentUser?.id]
   );
-  const activeRoom = useMemo(
-    () => rooms.find((room) => room.id === activeRoomId) ?? rooms[0],
-    [rooms, activeRoomId]
-  );
+  const activeRoom = useMemo(() => {
+    const inWs = sourceRooms.filter((r) => r.workspaceId === workspaceScopeId);
+    const hit = inWs.find((room) => room.id === activeRoomId);
+    if (hit) return hit;
+    return rooms.find((room) => room.id === activeRoomId) ?? rooms[0];
+  }, [sourceRooms, workspaceScopeId, rooms, activeRoomId]);
   const roomMessages = useMemo(
     () => chatMessages.filter((message) => message.roomId === (activeRoom?.id ?? "")),
     [chatMessages, activeRoom]
@@ -582,6 +587,10 @@ export default function NeonLinkMockup() {
   };
 
   const selectChatRoom = (roomId: string) => {
+    const r = sourceRooms.find((x) => x.id === roomId);
+    if (r && r.sectionId !== activeSection) {
+      setActiveSection(r.sectionId as SectionId);
+    }
     setMainView("chat");
     setActiveRoomId(roomId);
   };
@@ -774,6 +783,7 @@ export default function NeonLinkMockup() {
   currentUserRef.current = currentUser;
   activeRoomIdRef.current = activeRoomId;
   activeSectionRef.current = activeSection;
+  activeWorkspaceIdRef.current = activeWorkspaceId;
 
   const mapServerMessageToChat = (message: ServerMessage): ChatMessage => {
     const uidRef = senderUserIdRef.current;
@@ -1852,6 +1862,13 @@ export default function NeonLinkMockup() {
       if (uid) void loadFriendDataRef.current(uid);
     });
 
+    socket.on("chat:privateRoomUpsert", (payload: { room: WorkspaceChatRoom }) => {
+      const room = payload?.room;
+      if (!room?.id || room.chatType !== "private") return;
+      if (room.workspaceId !== activeWorkspaceIdRef.current) return;
+      setServerRooms((prev) => (prev.some((r) => r.id === room.id) ? prev : [...prev, room]));
+    });
+
     return () => {
       joinedWorkspaceRoomsRef.current.clear();
       socket.disconnect();
@@ -2182,6 +2199,7 @@ export default function NeonLinkMockup() {
                 <div className="flex items-center gap-2 text-[11px] font-semibold text-white mb-2 uppercase tracking-wider">
                   <UserIcon className="h-3.5 w-3.5 text-emerald-300" />
                   Privat
+                  <span className="normal-case font-normal text-white/40 font-sans">· alle Rubriken</span>
                 </div>
                 <div className="space-y-2">
                   {privateRooms.length === 0 ? (
