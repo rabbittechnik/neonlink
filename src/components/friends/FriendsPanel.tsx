@@ -135,15 +135,15 @@ export function FriendsPanel({
         />
       ) : null}
 
-      <p className="text-[10px] text-white/40 leading-relaxed px-0.5">
-        Eingeloggt als <span className="text-cyan-200/90">{displayName}</span>. Gruppen (Familie, Feuerwehr, …) ordnest du
+      <p className="text-[10px] font-medium text-white/90 leading-relaxed px-0.5">
+        Eingeloggt als <span className="text-cyan-100 font-semibold">{displayName}</span>. Gruppen (Familie, Feuerwehr, …) ordnest du
         nur für dich zu — andere sehen deine Zuordnung nicht.
       </p>
 
       {(inviteInfo || friendInfo) && (
         <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 space-y-1 text-[11px]">
-          {inviteInfo ? <p className="text-white/70 leading-snug">{inviteInfo}</p> : null}
-          {friendInfo ? <p className="text-cyan-200/90 leading-snug">{friendInfo}</p> : null}
+          {inviteInfo ? <p className="text-white leading-snug font-medium">{inviteInfo}</p> : null}
+          {friendInfo ? <p className="text-cyan-100 font-semibold leading-snug">{friendInfo}</p> : null}
         </div>
       )}
 

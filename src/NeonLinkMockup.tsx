@@ -83,37 +83,37 @@ const sectionTheme: Record<
   { chip: string; border: string; panel: string; led: string }
 > = {
   familie: {
-    chip: "text-cyan-200",
+    chip: "text-cyan-50 font-semibold",
     border: "border-cyan-300/30",
     panel: "from-cyan-500/20 to-blue-500/10",
     led: "from-cyan-400 via-blue-400 to-cyan-300",
   },
   freunde: {
-    chip: "text-fuchsia-200",
+    chip: "text-fuchsia-50 font-semibold",
     border: "border-fuchsia-300/30",
     panel: "from-fuchsia-500/20 to-pink-500/10",
     led: "from-fuchsia-400 via-violet-400 to-pink-300",
   },
   verwandte: {
-    chip: "text-rose-200",
+    chip: "text-rose-50 font-semibold",
     border: "border-rose-300/30",
     panel: "from-rose-500/20 to-pink-500/10",
     led: "from-rose-400 via-pink-400 to-rose-300",
   },
   feuerwehr: {
-    chip: "text-orange-200",
+    chip: "text-orange-50 font-semibold",
     border: "border-orange-300/30",
     panel: "from-red-500/20 to-orange-500/10",
     led: "from-red-400 via-orange-400 to-yellow-300",
   },
   arbeit: {
-    chip: "text-amber-200",
+    chip: "text-amber-50 font-semibold",
     border: "border-amber-300/30",
     panel: "from-amber-500/20 to-yellow-500/10",
     led: "from-amber-400 via-yellow-400 to-amber-300",
   },
   ideen: {
-    chip: "text-emerald-200",
+    chip: "text-emerald-50 font-semibold",
     border: "border-emerald-300/30",
     panel: "from-emerald-500/20 to-teal-500/10",
     led: "from-emerald-400 via-teal-400 to-emerald-300",
@@ -258,7 +258,7 @@ const STATUS_PILL: Record<
   },
   offline: {
     label: "Offline",
-    className: "bg-white/10 text-white/55 border-white/15",
+    className: "bg-white/10 text-white font-semibold border-white/15",
   },
   on_call: {
     label: "Im Einsatz",
@@ -1811,7 +1811,7 @@ export default function NeonLinkMockup() {
                 aria-label={`${s.label} Bereich waehlen`}
               >
                 {active && <span className={`absolute left-0 top-2 bottom-2 w-1 rounded-full bg-gradient-to-b ${theme.led}`} />}
-                <Icon className={`h-6 w-6 ${active ? "text-cyan-200" : "text-white/75"}`} />
+                <Icon className={`h-6 w-6 ${active ? "text-cyan-100" : "text-white"}`} />
               </button>
             );
           })}
@@ -1825,7 +1825,7 @@ export default function NeonLinkMockup() {
               aria-label={`Neuigkeiten${newsBellCount > 0 ? `, ${newsBellCount} ungelesen` : ""}`}
             >
               <Bell
-                className={`h-5 w-5 ${newsBellCount > 0 ? "text-cyan-200" : "text-white/70"}`}
+                className={`h-5 w-5 ${newsBellCount > 0 ? "text-cyan-100" : "text-white"}`}
               />
               {newsBellCount > 0 ? (
                 <span className="absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-0.5 rounded-full bg-rose-500 text-[10px] font-bold text-white flex items-center justify-center leading-none shadow-lg shadow-rose-500/40 border border-rose-300/60">
@@ -1839,7 +1839,7 @@ export default function NeonLinkMockup() {
               className="h-12 w-12 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10"
               aria-label="Einstellungen"
             >
-              <Settings className="h-5 w-5 text-white/70" />
+              <Settings className="h-5 w-5 text-white" />
             </button>
           </div>
         </motion.aside>
@@ -1851,9 +1851,9 @@ export default function NeonLinkMockup() {
         >
           <div className="flex items-center justify-between gap-2 min-w-0">
             <div className="min-w-0">
-              <div className="text-xs uppercase tracking-[0.25em] text-cyan-300/80">NeonLink</div>
+              <div className="text-xs uppercase tracking-[0.25em] text-cyan-100 font-semibold">NeonLink</div>
               {workspaceLabel ? (
-                <div className="text-[11px] text-white/50 mt-0.5 truncate" title={workspaceLabel}>
+                <div className="text-[11px] text-white mt-0.5 truncate" title={workspaceLabel}>
                   {workspaceLabel}
                 </div>
               ) : null}
@@ -1863,11 +1863,11 @@ export default function NeonLinkMockup() {
           </div>
 
           <div className="relative">
-            <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+            <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-white" />
             <Input
               value={chatSidebarSearch}
               onChange={(e) => setChatSidebarSearch(e.target.value)}
-              className="pl-9 bg-white/5 border-white/10 rounded-2xl h-11 text-white placeholder:text-white/35"
+              className="pl-9 bg-white/5 border-white/10 rounded-2xl h-11 text-white placeholder:text-white/60"
               placeholder="Chats filtern…"
               aria-label="Chats filtern"
             />
@@ -1877,7 +1877,7 @@ export default function NeonLinkMockup() {
             <CardContent className="p-4">
               <div className={`text-sm ${activeTheme.chip}`}>Aktiver Bereich</div>
               <div className="text-lg font-semibold mt-1">{activeSectionData.label}</div>
-              <div className="text-xs text-white/60 mt-2">
+              <div className="text-xs text-white mt-2">
                 Chats, Meetings, Dateien und gemeinsame Planung in einem Bereich.
               </div>
             </CardContent>
@@ -1885,7 +1885,7 @@ export default function NeonLinkMockup() {
 
           <div>
             <div className="flex items-center justify-between gap-2 mb-3 min-w-0">
-              <div className="text-sm uppercase tracking-[0.2em] text-white/45 shrink-0">Chats</div>
+              <div className="text-sm font-semibold uppercase tracking-[0.2em] text-white shrink-0">Chats</div>
               <Button
                 type="button"
                 onClick={() => setNewChatOpen(true)}
@@ -1898,13 +1898,13 @@ export default function NeonLinkMockup() {
 
             <div className="space-y-5">
               <div>
-                <div className="flex items-center gap-2 text-[11px] text-white/50 mb-2 uppercase tracking-wider">
+                <div className="flex items-center gap-2 text-[11px] font-semibold text-white mb-2 uppercase tracking-wider">
                   <Globe className="h-3.5 w-3.5 text-cyan-300" />
                   Hauptchat
                 </div>
                 <div className="space-y-2">
                   {globalRooms.length > 0 && globalRoomsFiltered.length === 0 ? (
-                    <p className="text-xs text-amber-200/80 px-1">Kein Treffer für „{chatSidebarSearch.trim()}“.</p>
+                    <p className="text-xs text-amber-100 font-semibold px-1">Kein Treffer für „{chatSidebarSearch.trim()}“.</p>
                   ) : null}
                   {globalRoomsFiltered.map((room) => (
                     <motion.button
@@ -1925,11 +1925,11 @@ export default function NeonLinkMockup() {
                               {displayChatTitle(room, senderUserId, userNamesById)}
                             </span>
                             {room.kind !== "text" ? (
-                              <span className="text-[10px] text-white/40 uppercase shrink-0">{room.kind}</span>
+                              <span className="text-[10px] text-white uppercase shrink-0">{room.kind}</span>
                             ) : null}
                           </div>
                           {previewByRoomId[room.id] ? (
-                            <div className="text-[11px] text-white/45 truncate mt-0.5">
+                            <div className="text-[11px] text-white truncate mt-0.5">
                               {previewByRoomId[room.id]}
                             </div>
                           ) : null}
@@ -1943,7 +1943,7 @@ export default function NeonLinkMockup() {
                               </span>
                             ) : null;
                           })()}
-                          <MessageSquare className="h-4 w-4 text-white/50" />
+                          <MessageSquare className="h-4 w-4 text-white" />
                         </div>
                       </div>
                     </motion.button>
@@ -1952,15 +1952,15 @@ export default function NeonLinkMockup() {
               </div>
 
               <div>
-                <div className="flex items-center gap-2 text-[11px] text-white/50 mb-2 uppercase tracking-wider">
+                <div className="flex items-center gap-2 text-[11px] font-semibold text-white mb-2 uppercase tracking-wider">
                   <Users className="h-3.5 w-3.5 text-fuchsia-300" />
                   Gruppen
                 </div>
                 <div className="space-y-2">
                   {groupRooms.length === 0 ? (
-                    <p className="text-xs text-white/35 px-1">Noch keine Gruppen in diesem Bereich.</p>
+                    <p className="text-xs text-white px-1">Noch keine Gruppen in diesem Bereich.</p>
                   ) : groupRoomsFiltered.length === 0 ? (
-                    <p className="text-xs text-amber-200/80 px-1">Kein Treffer für „{chatSidebarSearch.trim()}“.</p>
+                    <p className="text-xs text-amber-100 font-semibold px-1">Kein Treffer für „{chatSidebarSearch.trim()}“.</p>
                   ) : (
                     groupRoomsFiltered.map((room) => (
                       <motion.button
@@ -1978,7 +1978,7 @@ export default function NeonLinkMockup() {
                           <div className="min-w-0 flex-1">
                             <div className="font-medium truncate">{room.name}</div>
                             {previewByRoomId[room.id] ? (
-                              <div className="text-[11px] text-white/45 truncate mt-0.5">
+                              <div className="text-[11px] text-white truncate mt-0.5">
                                 {previewByRoomId[room.id]}
                               </div>
                             ) : null}
@@ -1992,7 +1992,7 @@ export default function NeonLinkMockup() {
                                 </span>
                               ) : null;
                             })()}
-                            <MessageSquare className="h-4 w-4 text-white/50" />
+                            <MessageSquare className="h-4 w-4 text-white" />
                           </div>
                         </div>
                       </motion.button>
@@ -2002,15 +2002,15 @@ export default function NeonLinkMockup() {
               </div>
 
               <div>
-                <div className="flex items-center gap-2 text-[11px] text-white/50 mb-2 uppercase tracking-wider">
+                <div className="flex items-center gap-2 text-[11px] font-semibold text-white mb-2 uppercase tracking-wider">
                   <UserIcon className="h-3.5 w-3.5 text-emerald-300" />
                   Privat
                 </div>
                 <div className="space-y-2">
                   {privateRooms.length === 0 ? (
-                    <p className="text-xs text-white/35 px-1">Keine Direktchats — „Neu“ nutzen.</p>
+                    <p className="text-xs text-white px-1">Keine Direktchats — „Neu“ nutzen.</p>
                   ) : privateRoomsFiltered.length === 0 ? (
-                    <p className="text-xs text-amber-200/80 px-1">Kein Treffer für „{chatSidebarSearch.trim()}“.</p>
+                    <p className="text-xs text-amber-100 font-semibold px-1">Kein Treffer für „{chatSidebarSearch.trim()}“.</p>
                   ) : (
                     privateRoomsFiltered.map((room) => (
                       <motion.button
@@ -2030,7 +2030,7 @@ export default function NeonLinkMockup() {
                               {displayChatTitle(room, senderUserId, userNamesById)}
                             </div>
                             {previewByRoomId[room.id] ? (
-                              <div className="text-[11px] text-white/45 truncate mt-0.5">
+                              <div className="text-[11px] text-white truncate mt-0.5">
                                 {previewByRoomId[room.id]}
                               </div>
                             ) : null}
@@ -2044,7 +2044,7 @@ export default function NeonLinkMockup() {
                                 </span>
                               ) : null;
                             })()}
-                            <MessageSquare className="h-4 w-4 text-white/50" />
+                            <MessageSquare className="h-4 w-4 text-white" />
                           </div>
                         </div>
                       </motion.button>
@@ -2055,7 +2055,7 @@ export default function NeonLinkMockup() {
 
               {activeWorkspaceId && meetingRooms.length > 0 ? (
                 <div>
-                  <div className="flex items-center gap-2 text-[11px] text-white/50 mb-2 uppercase tracking-wider">
+                  <div className="flex items-center gap-2 text-[11px] font-semibold text-white mb-2 uppercase tracking-wider">
                     <CalendarDays className="h-3.5 w-3.5 text-sky-300" />
                     Meetings
                   </div>
@@ -2088,7 +2088,7 @@ export default function NeonLinkMockup() {
           </div>
 
           <div>
-            <div className="text-sm uppercase tracking-[0.2em] text-white/45 mb-3">Schnellzugriff</div>
+            <div className="text-sm font-semibold uppercase tracking-[0.2em] text-white mb-3">Schnellzugriff</div>
             <div className="grid grid-cols-2 gap-2 min-w-0">
               {(
                 [
@@ -2144,7 +2144,7 @@ export default function NeonLinkMockup() {
                     aria-label={`${item.label} oeffnen`}
                   >
                     <Icon className="h-5 w-5 text-cyan-300 shrink-0" />
-                    <span className="text-[11px] sm:text-sm leading-tight text-white/90 break-words hyphens-auto w-full">
+                    <span className="text-[11px] sm:text-sm leading-tight text-white break-words hyphens-auto w-full">
                       {item.label}
                     </span>
                   </button>
@@ -2170,7 +2170,7 @@ export default function NeonLinkMockup() {
           >
             <div className={`pointer-events-none absolute left-4 right-4 sm:left-6 sm:right-6 top-0 h-1 rounded-full bg-gradient-to-r ${activeTheme.led} animate-pulse`} />
             <div className="min-w-0 pt-1">
-              <div className="text-xs uppercase tracking-[0.25em] text-cyan-300/80">
+              <div className="text-xs uppercase tracking-[0.25em] text-cyan-100 font-semibold">
                 {mainView === "meetings" ? "Meetings" : mainView === "news" ? "Neuigkeiten" : "Chat"}
               </div>
               <div className="text-xl sm:text-2xl font-semibold mt-1 truncate">
@@ -2182,7 +2182,7 @@ export default function NeonLinkMockup() {
                       ? displayChatTitle(activeRoom, senderUserId, userNamesById)
                       : "Kein Raum"}
               </div>
-              <div className="text-xs text-white/60 mt-1">
+              <div className="text-xs text-white mt-1">
                 {mainView === "meetings"
                   ? "Workspace-Meetings · Kalender nur für Eingeladene"
                   : mainView === "news"
@@ -2218,7 +2218,7 @@ export default function NeonLinkMockup() {
                 <button
                   type="button"
                   onClick={() => setProfileModalOpen(true)}
-                  className="text-xs text-cyan-200/90 hover:text-cyan-100 truncate max-w-[10rem] sm:max-w-[14rem] text-left underline-offset-2 hover:underline"
+                  className="text-xs text-cyan-100 font-semibold hover:text-cyan-50 truncate max-w-[10rem] sm:max-w-[14rem] text-left underline-offset-2 hover:underline"
                 >
                   {currentUser?.displayName ?? "—"}
                 </button>
@@ -2228,7 +2228,7 @@ export default function NeonLinkMockup() {
                 onClick={() => {
                   void logout().then(() => navigate("/login", { replace: true }));
                 }}
-                className="rounded-xl bg-white/10 border border-white/15 text-white/80 hover:bg-red-500/25 hover:border-red-400/40 hover:text-red-100 shrink-0 h-9 w-9 p-0 inline-flex items-center justify-center"
+                className="rounded-xl bg-white/10 border border-white/15 text-white hover:bg-red-500/25 hover:border-red-400/40 hover:text-red-100 shrink-0 h-9 w-9 p-0 inline-flex items-center justify-center"
                 title="Abmelden"
               >
                 <LogOut className="h-4 w-4" />
@@ -2236,11 +2236,11 @@ export default function NeonLinkMockup() {
               <Button
                 type="button"
                 onClick={openFilePicker}
-                className="rounded-xl bg-white/10 border border-white/15 text-white/80 hover:bg-white/20 shrink-0 h-9 w-9 p-0 inline-flex items-center justify-center"
+                className="rounded-xl bg-white/10 border border-white/15 text-white hover:bg-white/20 shrink-0 h-9 w-9 p-0 inline-flex items-center justify-center"
               >
                 <Paperclip className="h-4 w-4" />
               </Button>
-              <Button className="rounded-xl bg-white/10 border border-white/15 text-white/80 hover:bg-white/20 shrink-0 h-9 w-9 p-0 inline-flex items-center justify-center">
+              <Button className="rounded-xl bg-white/10 border border-white/15 text-white hover:bg-white/20 shrink-0 h-9 w-9 p-0 inline-flex items-center justify-center">
                 <Search className="h-4 w-4" />
               </Button>
               <Button className="rounded-2xl bg-cyan-500/20 border border-cyan-300/30 text-cyan-100 hover:bg-cyan-500/30 shrink-0 inline-flex items-center gap-2 px-3 sm:px-4 py-2 text-sm whitespace-nowrap">
@@ -2375,7 +2375,7 @@ export default function NeonLinkMockup() {
             ) : (
             <Card className="lg:col-span-8 min-w-0 rounded-3xl border border-white/10 bg-white/5 text-white backdrop-blur-xl flex flex-col min-h-0 min-w-0 lg:h-full lg:max-h-full">
               <CardHeader className="rounded-t-3xl border-b border-white/10 px-6 sm:px-10 pt-7 pb-4 flex justify-center items-center shrink-0">
-                <CardTitle className="text-lg sm:text-xl text-center font-semibold tracking-wide text-white/95 leading-normal">
+                <CardTitle className="text-lg sm:text-xl text-center font-semibold tracking-wide text-white leading-normal">
                   Live-Chat
                 </CardTitle>
               </CardHeader>
@@ -2385,13 +2385,13 @@ export default function NeonLinkMockup() {
                   className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 flex flex-col gap-4"
                 >
                 {sourceRooms.length === 0 && activeWorkspaceId ? (
-                  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-8 text-sm text-white/65 text-center leading-relaxed">
+                  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-8 text-sm text-white text-center leading-relaxed">
                     In diesem Workspace sind noch keine Raeume geladen — bitte Seite neu laden oder kurz warten. Ohne
                     Backend bleibt die Liste leer.
                   </div>
                 ) : null}
                 {!activeWorkspaceId && token ? (
-                  <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-8 text-sm text-cyan-100/90 text-center">
+                  <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-8 text-sm text-cyan-50 font-semibold text-center">
                     Workspace wird geladen …
                   </div>
                 ) : null}
@@ -2400,7 +2400,7 @@ export default function NeonLinkMockup() {
                     <div className="flex items-center gap-2 text-yellow-200">
                       <Pin className="h-3 w-3" /> Angepinnt
                     </div>
-                    <div className="mt-1 text-white/90">
+                    <div className="mt-1 text-white">
                       {pinnedMessage.calendarAnnouncement ? (
                         <CalendarAnnouncementMessage payload={pinnedMessage.calendarAnnouncement} />
                       ) : (
@@ -2512,17 +2512,17 @@ export default function NeonLinkMockup() {
                               : "bg-yellow-400"
                           }`}
                         />
-                        <span className="text-white/40">{m.time}</span>
+                        <span className="text-white">{m.time}</span>
                       </div>
                       <div
-                        className={`mt-1 w-full min-w-0 max-w-full rounded-2xl border px-4 py-3 text-sm leading-relaxed shadow-lg shadow-black/10 break-words [overflow-wrap:anywhere] ${
+                        className={`mt-1 w-full min-w-0 max-w-full rounded-2xl border px-4 py-3 text-sm font-medium leading-relaxed shadow-lg shadow-black/10 break-words [overflow-wrap:anywhere] ${
                           isMine
                             ? "border-cyan-300/50 bg-gradient-to-br from-cyan-500/35 via-cyan-600/20 to-slate-900/55"
                             : m.calendarAnnouncement
-                              ? "border-white/10 bg-white/5 text-white/90"
+                              ? "border-white/10 bg-white/5 text-white"
                               : peerBubble
-                                ? "text-white/90"
-                                : "border-white/10 bg-white/[0.07] text-white/90"
+                                ? "text-white"
+                                : "border-white/10 bg-white/[0.07] text-white"
                         } ${isMine && !senderHex && !m.calendarAnnouncement ? "text-white" : ""}`}
                         style={{
                           ...(senderHex && !m.calendarAnnouncement
@@ -2537,9 +2537,9 @@ export default function NeonLinkMockup() {
                         }}
                       >
                         {m.replyTo ? (
-                          <div className="mb-2 min-w-0 rounded-lg border border-white/10 bg-black/20 px-2 py-1 text-[11px] text-white/70 break-words [overflow-wrap:anywhere]">
-                            <span className="text-cyan-200/90">{m.replyTo.from}</span>
-                            <span className="text-white/50"> · </span>
+                          <div className="mb-2 min-w-0 rounded-lg border border-white/10 bg-black/20 px-2 py-1 text-[11px] text-white break-words [overflow-wrap:anywhere]">
+                            <span className="text-cyan-100 font-semibold">{m.replyTo.from}</span>
+                            <span className="text-white"> · </span>
                             {m.replyTo.preview}
                           </div>
                         ) : null}
@@ -2562,13 +2562,13 @@ export default function NeonLinkMockup() {
                                 <File className="h-4 w-4 text-cyan-200 shrink-0" />
                                 <div className="min-w-0">
                                   <div className="truncate font-medium">{att.fileName}</div>
-                                  <div className="text-white/50">{att.mimeType} · {formatBytes(att.sizeBytes)}</div>
+                                  <div className="text-white">{att.mimeType} · {formatBytes(att.sizeBytes)}</div>
                                 </div>
                               </div>
                               <a
                                 href={`${API_BASE_URL}/attachments/${att.id}/download`}
                                 download={att.fileName}
-                                className="shrink-0 rounded-lg bg-white/10 border border-white/15 px-2 py-1 hover:bg-white/20 flex items-center gap-1 text-white/90"
+                                className="shrink-0 rounded-lg bg-white/10 border border-white/15 px-2 py-1 hover:bg-white/20 flex items-center gap-1 text-white"
                               >
                                 <Download className="h-3 w-3" />
                                 Laden
@@ -2584,12 +2584,12 @@ export default function NeonLinkMockup() {
                           <File className="h-4 w-4 text-cyan-200" />
                           <div>
                             <div>Anhang vorhanden (Demo)</div>
-                            <div className="text-white/50">Bild/Video/Musik/ZIP</div>
+                            <div className="text-white">Bild/Video/Musik/ZIP</div>
                           </div>
                         </div>
                       ) : null}
                       <div
-                        className={`mt-1 items-center gap-2 text-[11px] text-white/60 w-full ${
+                        className={`mt-1 items-center gap-2 text-[11px] text-white w-full ${
                           isMine ? "justify-end" : ""
                         } ${
                           reactionBarForMessageId === m.id || messageOverflowId === m.id
@@ -2637,7 +2637,7 @@ export default function NeonLinkMockup() {
                             >
                               <button
                                 type="button"
-                                className="w-full text-left px-3 py-2 text-xs text-white/90 hover:bg-white/10"
+                                className="w-full text-left px-3 py-2 text-xs text-white hover:bg-white/10"
                                 onClick={() => {
                                   const t = m.calendarAnnouncement
                                     ? `${m.calendarAnnouncement.title} · ${m.calendarAnnouncement.dateLabel} ${m.calendarAnnouncement.timeLabel}`
@@ -2678,10 +2678,10 @@ export default function NeonLinkMockup() {
                   );
                 })}
                 {typingOthersLabel ? (
-                  <div className="text-xs text-emerald-200/90 animate-pulse">{typingOthersLabel}</div>
+                  <div className="text-xs text-emerald-100 font-semibold animate-pulse">{typingOthersLabel}</div>
                 ) : null}
                 {messageInput.trim().length > 0 ? (
-                  <div className="text-xs text-cyan-200/80">Du tippst gerade...</div>
+                  <div className="text-xs text-cyan-100 font-semibold">Du tippst gerade...</div>
                 ) : null}
                 <div ref={chatScrollEndRef} className="h-px w-full shrink-0" aria-hidden />
                 </div>
@@ -2691,9 +2691,9 @@ export default function NeonLinkMockup() {
                   <div className="mb-2 text-xs text-cyan-200 rounded-lg border border-cyan-400/20 bg-cyan-500/10 p-2">
                     Antwort auf {replyTarget?.from ?? "Nachricht"}
                     {replyTarget ? (
-                      <span className="text-white/60"> · {replyTarget.text.slice(0, 80)}{replyTarget.text.length > 80 ? "…" : ""}</span>
+                      <span className="text-white"> · {replyTarget.text.slice(0, 80)}{replyTarget.text.length > 80 ? "…" : ""}</span>
                     ) : null}
-                    <button type="button" onClick={() => setReplyToMessageId(null)} className="ml-2 text-white/70 hover:text-white">
+                    <button type="button" onClick={() => setReplyToMessageId(null)} className="ml-2 text-white hover:text-white">
                       abbrechen
                     </button>
                   </div>
@@ -2708,7 +2708,7 @@ export default function NeonLinkMockup() {
                         {a.fileName}
                         <button
                           type="button"
-                          className="text-white/60 hover:text-white"
+                          className="text-white hover:text-white"
                           onClick={() =>
                             setPendingAttachments((prev) => prev.filter((_, i) => i !== idx))
                           }
@@ -2724,14 +2724,14 @@ export default function NeonLinkMockup() {
                     type="button"
                     variant="ghost"
                     onClick={openFilePicker}
-                    className="rounded-xl text-white/60 hover:text-white hover:bg-white/10 shrink-0 h-10 w-10 p-0 inline-flex items-center justify-center"
+                    className="rounded-xl text-white hover:text-white hover:bg-white/10 shrink-0 h-10 w-10 p-0 inline-flex items-center justify-center"
                     aria-label="Datei anhaengen"
                   >
                     <Paperclip className="h-5 w-5" />
                   </Button>
                   <input
                     ref={messageInputRef}
-                    className="min-w-0 flex-1 basis-[8rem] sm:basis-auto bg-transparent outline-none text-sm placeholder:text-white/35 px-1 py-2"
+                    className="min-w-0 flex-1 basis-[8rem] sm:basis-auto bg-transparent outline-none text-sm placeholder:text-white/60 px-1 py-2"
                     placeholder="Nachricht … (Enter zum Senden)"
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
@@ -2749,7 +2749,7 @@ export default function NeonLinkMockup() {
                         e.stopPropagation();
                         setEmojiBarOpen((o) => !o);
                       }}
-                      className="rounded-xl text-white/60 hover:text-white hover:bg-white/10 h-10 w-10 p-0 inline-flex items-center justify-center"
+                      className="rounded-xl text-white hover:text-white hover:bg-white/10 h-10 w-10 p-0 inline-flex items-center justify-center"
                       aria-label="Emoji einfügen"
                       aria-expanded={emojiBarOpen}
                     >
@@ -2825,7 +2825,7 @@ export default function NeonLinkMockup() {
                   </div>
                   <div className="min-w-0 flex-1 space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs uppercase tracking-wider text-violet-200/80 flex items-center gap-1.5">
+                      <span className="text-xs uppercase tracking-wider text-violet-100 font-semibold flex items-center gap-1.5">
                         <UserIcon className="h-3.5 w-3.5" />
                         Dein Profil
                       </span>
@@ -2833,17 +2833,17 @@ export default function NeonLinkMockup() {
                     </div>
                     <div className="text-lg font-semibold truncate">{currentUser?.displayName ?? "Gast"}</div>
                     {currentUser?.statusMessage ? (
-                      <p className="text-xs text-white/55 line-clamp-2 leading-snug">„{currentUser.statusMessage}“</p>
+                      <p className="text-xs text-white line-clamp-2 leading-snug">„{currentUser.statusMessage}“</p>
                     ) : (
-                      <p className="text-xs text-white/40">Kein Statustext — im Profil ergänzen.</p>
+                      <p className="text-xs text-white">Kein Statustext — im Profil ergänzen.</p>
                     )}
-                    <div className="text-[11px] text-white/45 space-y-0.5">
+                    <div className="text-[11px] text-white space-y-0.5">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-white/35">E-Mail (Profil):</span>
+                        <span className="text-white">E-Mail (Profil):</span>
                         <span className="truncate">{currentUser?.contactEmail ?? "—"}</span>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-white/35">Telefon:</span>
+                        <span className="text-white">Telefon:</span>
                         <span>
                           {currentUser?.phoneDigits
                             ? maskPhoneDigits(currentUser.phoneDigits)
@@ -2852,8 +2852,8 @@ export default function NeonLinkMockup() {
                       </div>
                     </div>
                     <div className="pt-1 space-y-0.5">
-                      <span className="text-xs font-medium text-cyan-300/90">Profil bearbeiten →</span>
-                      <p className="text-[10px] text-white/40 leading-snug">
+                      <span className="text-xs font-semibold text-cyan-100">Profil bearbeiten →</span>
+                      <p className="text-[10px] text-white leading-snug">
                         Chat-Schriftfarbe: im Profil-Dialog direkt unter dem Profilbild (türkiser Block).
                       </p>
                     </div>
@@ -2868,7 +2868,7 @@ export default function NeonLinkMockup() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {visibleFriendsForSection.length === 0 ? (
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-xs text-white/70">
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-xs text-white">
                       Keine Freunde in dieser Gruppe.
                     </div>
                   ) : null}
@@ -2906,15 +2906,15 @@ export default function NeonLinkMockup() {
                             <StatusPill presence={fp} />
                           </div>
                           {friend.statusMessage ? (
-                            <div className="text-[11px] text-white/55 mt-1 line-clamp-2">{friend.statusMessage}</div>
+                            <div className="text-[11px] text-white mt-1 line-clamp-2">{friend.statusMessage}</div>
                           ) : null}
                           {friend.contactEmail ? (
-                            <div className="text-[10px] text-white/40 mt-1 truncate">✉ {friend.contactEmail}</div>
+                            <div className="text-[10px] text-white mt-1 truncate">✉ {friend.contactEmail}</div>
                           ) : null}
                           {friend.phoneMasked ? (
-                            <div className="text-[10px] text-white/40 truncate">📞 {friend.phoneMasked}</div>
+                            <div className="text-[10px] text-white truncate">📞 {friend.phoneMasked}</div>
                           ) : null}
-                          <div className="text-[10px] text-white/35 mt-1">{option?.label ?? friend.group}</div>
+                          <div className="text-[10px] text-white mt-1">{option?.label ?? friend.group}</div>
                         </div>
                       </div>
                     );
@@ -2925,16 +2925,16 @@ export default function NeonLinkMockup() {
                 <Card className="rounded-3xl border-white/10 bg-white/5 text-white backdrop-blur-xl shrink-0">
                 <CardHeader>
                   <CardTitle className="text-lg">Naechste Termine</CardTitle>
-                  <p className="text-[11px] text-white/45 font-normal mt-1 leading-snug">
+                  <p className="text-[11px] text-white font-normal mt-1 leading-snug">
                     Aus allen Workspaces · Farbe = Rubrik (z.&nbsp;B. Feuerwehr rot, Familie türkis)
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {!token || !currentUser ? (
-                    <div className="text-xs text-white/45 py-4 text-center">Anmelden, um Termine zu sehen.</div>
+                    <div className="text-xs text-white py-4 text-center">Anmelden, um Termine zu sehen.</div>
                   ) : sidebarUpcoming.length === 0 ? (
-                    <div className="text-xs text-white/45 py-4 text-center leading-relaxed">
-                      Keine anstehenden Termine. Unter <strong className="text-white/70">Kalender</strong> kannst du
+                    <div className="text-xs text-white py-4 text-center leading-relaxed">
+                      Keine anstehenden Termine. Unter <strong className="text-white">Kalender</strong> kannst du
                       welche anlegen — sie erscheinen hier und im Kalender über alle Bereiche.
                     </div>
                   ) : (
@@ -2966,7 +2966,7 @@ export default function NeonLinkMockup() {
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="text-sm font-medium leading-snug break-words">{ev.title}</div>
-                            <div className="text-xs text-white/65 mt-1 leading-snug break-words">{sub}</div>
+                            <div className="text-xs text-white mt-1 leading-snug break-words">{sub}</div>
                           </div>
                         </button>
                       );

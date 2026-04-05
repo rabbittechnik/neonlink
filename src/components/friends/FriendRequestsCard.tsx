@@ -34,9 +34,9 @@ export function FriendRequestsCard({ requests, resolveUser, onRespond }: Props) 
       </CardHeader>
       <CardContent className="space-y-2 pt-0 max-h-48 overflow-y-auto pr-1">
         {requests.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-6 text-center text-white/45">
-            <Inbox className="h-8 w-8 mb-2 opacity-40" />
-            <p className="text-xs">Keine offenen Anfragen</p>
+          <div className="flex flex-col items-center justify-center py-6 text-center text-white/90">
+            <Inbox className="h-8 w-8 mb-2 opacity-60" />
+            <p className="text-xs font-medium">Keine offenen Anfragen</p>
           </div>
         ) : (
           requests.map((req) => {
@@ -57,7 +57,7 @@ export function FriendRequestsCard({ requests, resolveUser, onRespond }: Props) 
                   )}
                 </Avatar>
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium text-white truncate">{name}</div>
+                  <div className="text-sm font-semibold text-white truncate">{name}</div>
                   <div className="flex gap-1.5 mt-2">
                     <Button
                       type="button"

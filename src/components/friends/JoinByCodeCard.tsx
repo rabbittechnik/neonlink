@@ -47,7 +47,7 @@ export function JoinByCodeCard({ onAddFriendByCode, highlight }: Props) {
             if (e.key === "Enter") submit();
           }}
           placeholder="z. B. NLF-ABC123"
-          className="w-full min-w-0 bg-white/5 border-white/10 rounded-xl h-10 text-sm placeholder:text-white/40 font-mono"
+          className="w-full min-w-0 bg-white/5 border-white/10 rounded-xl h-10 text-sm placeholder:text-white/55 font-mono"
         />
         <Button
           type="button"
@@ -57,7 +57,7 @@ export function JoinByCodeCard({ onAddFriendByCode, highlight }: Props) {
         >
           {busy ? "Wird gesendet…" : "Beitreten / Anfrage senden"}
         </Button>
-        <p className="text-[10px] text-white/45 leading-snug">
+        <p className="text-[10px] font-medium text-white/90 leading-snug">
           Wir suchen den Nutzer und senden eine Freundschaftsanfrage — du wirst benachrichtigt, wenn er sie annimmt.
         </p>
       </CardContent>

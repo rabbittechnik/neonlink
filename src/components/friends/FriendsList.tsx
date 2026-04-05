@@ -23,7 +23,7 @@ const STATUS_PILL: Record<
   },
   offline: {
     label: "Offline",
-    className: "bg-white/10 text-white/55 border-white/15",
+    className: "bg-white/10 text-white font-semibold border-white/15",
   },
   on_call: {
     label: "Im Einsatz",
@@ -73,7 +73,7 @@ export function FriendsList({
       </CardHeader>
       <CardContent className="space-y-1.5 pt-0 max-h-56 overflow-y-auto pr-1">
         {friends.length === 0 ? (
-          <p className="text-xs text-white/45 py-6 text-center leading-relaxed px-2">
+          <p className="text-xs font-medium text-white py-6 text-center leading-relaxed px-2">
             Noch keine Freunde. Nutze Code oder Suche, um Kontakte hinzuzufügen.
           </p>
         ) : (
@@ -122,11 +122,11 @@ export function FriendsList({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-sm font-medium truncate text-white">{friend.displayName}</span>
+                        <span className="text-sm font-semibold truncate text-white">{friend.displayName}</span>
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5 mt-1">
                         <StatusDot presence={presence} />
-                        <span className="text-[10px] text-white/40" title={opt?.label}>
+                        <span className="text-[10px] font-medium text-white/90" title={opt?.label}>
                           {opt?.emoji} {opt?.label ?? friend.group}
                         </span>
                       </div>
@@ -137,13 +137,13 @@ export function FriendsList({
                     onClick={() => void onOpenPrivateChat(friend.id)}
                     disabled={chatBusyId === friend.id}
                     title="Direktchat öffnen"
-                    className="shrink-0 rounded-xl p-2 text-cyan-300/80 hover:bg-cyan-500/15 hover:text-cyan-200 disabled:opacity-50 transition-colors"
+                    className="shrink-0 rounded-xl p-2 text-cyan-100 hover:bg-cyan-500/15 hover:text-cyan-50 disabled:opacity-50 transition-colors"
                   >
                     <MessageCircle className="h-5 w-5" />
                   </button>
                 </div>
                 <select
-                  className="w-full max-w-full rounded-lg bg-white/5 border border-white/10 text-[11px] py-1 px-2 text-white/90"
+                  className="w-full max-w-full rounded-lg bg-white/5 border border-white/10 text-[11px] font-medium py-1 px-2 text-white"
                   value={friend.group}
                   onChange={(e) => {
                     onSetFriendGroup(friend.id, e.target.value as FriendListEntry["group"]);

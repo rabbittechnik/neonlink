@@ -34,7 +34,7 @@ export function InviteCodeCard({
   return (
     <Card className="rounded-3xl border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] text-white backdrop-blur-xl shadow-lg shadow-black/25">
       <CardHeader className="pb-2 space-y-0">
-        <CardTitle className="text-sm font-semibold flex items-center gap-2 text-white/95">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2 text-white">
           <span className="text-base" aria-hidden>
             🔗
           </span>
@@ -70,16 +70,16 @@ export function InviteCodeCard({
               Neu generieren
             </Button>
           </div>
-          {copyHint ? <p className="text-[11px] text-emerald-300/90 mt-2">{copyHint}</p> : null}
+          {copyHint ? <p className="text-[11px] font-medium text-emerald-200 mt-2">{copyHint}</p> : null}
         </div>
 
         <div className="border-t border-white/10 pt-4 space-y-3">
-          <div className="flex items-center gap-2 text-white/80">
-            <Link2 className="h-4 w-4 text-white/50 shrink-0" />
-            <span className="text-xs font-medium">Team-Workspace</span>
+          <div className="flex items-center gap-2 text-white">
+            <Link2 className="h-4 w-4 text-white/90 shrink-0" />
+            <span className="text-xs font-semibold">Team-Workspace</span>
           </div>
           {!activeWorkspaceId ? (
-            <p className="text-[11px] text-amber-200/80 leading-snug">
+            <p className="text-[11px] font-medium text-amber-100 leading-snug">
               Workspace wird geladen — Team-Einladungen sind danach verfügbar.
             </p>
           ) : null}
@@ -104,7 +104,7 @@ export function InviteCodeCard({
             value={workspaceInviteCode}
             onChange={(e) => onWorkspaceInviteCodeChange(e.target.value)}
             placeholder="Team-Code (z. B. NL-ABC123)"
-            className="w-full min-w-0 bg-white/5 border-white/10 rounded-xl h-10 text-sm placeholder:text-white/40"
+            className="w-full min-w-0 bg-white/5 border-white/10 rounded-xl h-10 text-sm placeholder:text-white/55"
           />
           <Button
             type="button"

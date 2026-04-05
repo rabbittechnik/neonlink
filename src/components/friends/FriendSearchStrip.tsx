@@ -22,7 +22,7 @@ export function FriendSearchStrip({
 }: Props) {
   return (
     <div className="rounded-2xl border border-fuchsia-400/25 bg-fuchsia-500/10 p-3 space-y-3">
-      <div className="flex items-center gap-2 text-fuchsia-100/90 text-xs font-medium">
+      <div className="flex items-center gap-2 text-fuchsia-50 text-xs font-semibold">
         <Search className="h-3.5 w-3.5" />
         Person suchen
       </div>
@@ -34,7 +34,7 @@ export function FriendSearchStrip({
             if (e.key === "Enter") onSearchFriends();
           }}
           placeholder="Name oder Freundescode"
-          className="flex-1 min-w-0 bg-white/5 border-white/10 rounded-xl h-9 text-sm placeholder:text-white/40"
+          className="flex-1 min-w-0 bg-white/5 border-white/10 rounded-xl h-9 text-sm placeholder:text-white/55"
         />
         <Button
           type="button"
@@ -60,8 +60,8 @@ export function FriendSearchStrip({
               )}
             </Avatar>
             <div className="min-w-0 flex-1">
-              <div className="text-xs font-medium text-white truncate">{user.displayName}</div>
-              <div className="text-[10px] text-white/50 font-mono truncate">{user.friendCode}</div>
+              <div className="text-xs font-semibold text-white truncate">{user.displayName}</div>
+              <div className="text-[10px] font-medium text-white/90 font-mono truncate">{user.friendCode}</div>
             </div>
             <Button
               type="button"

@@ -131,7 +131,7 @@ export default function LoginPage() {
                 className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all ${
                   mode === "login"
                     ? "bg-gradient-to-r from-cyan-500/30 to-blue-500/20 text-cyan-100 ring-1 ring-cyan-400/40"
-                    : "text-white/50 hover:text-white/80"
+                    : "text-white/90 hover:text-white font-semibold"
                 }`}
               >
                 <LogIn className="h-4 w-4" /> Einloggen
@@ -147,7 +147,7 @@ export default function LoginPage() {
                 className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all ${
                   mode === "register"
                     ? "bg-gradient-to-r from-fuchsia-500/30 to-violet-500/20 text-fuchsia-100 ring-1 ring-fuchsia-400/40"
-                    : "text-white/50 hover:text-white/80"
+                    : "text-white/90 hover:text-white font-semibold"
                 }`}
               >
                 <UserPlus className="h-4 w-4" /> Registrieren
@@ -167,11 +167,11 @@ export default function LoginPage() {
                   >
                     <ArrowLeft className="h-3 w-3" /> Zurück zu Name &amp; Passwort
                   </button>
-                  <p className="text-xs text-white/55">
+                  <p className="text-xs font-medium text-white/90">
                     Schritt 2 von 2: Handynummer ist Pflicht, damit dich Kontakte finden können.
                   </p>
                   <div className="space-y-1.5">
-                    <label className="text-xs text-cyan-200/80 uppercase tracking-wider flex items-center gap-2">
+                    <label className="text-xs text-cyan-100 font-semibold uppercase tracking-wider flex items-center gap-2">
                       <Smartphone className="h-3 w-3" /> Handynummer
                     </label>
                     <Input
@@ -181,7 +181,7 @@ export default function LoginPage() {
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="z. B. 0171 1234567 oder +49 …"
-                      className="h-12 rounded-xl bg-white/5 border-cyan-400/20 text-white placeholder:text-white/30"
+                      className="h-12 rounded-xl bg-white/5 border-cyan-400/20 text-white placeholder:text-white/50"
                     />
                   </div>
                 </div>
@@ -189,7 +189,7 @@ export default function LoginPage() {
 
               {mode === "register" && registerStep === 1 ? (
                 <div className="space-y-1.5">
-                  <label className="text-xs text-cyan-200/80 uppercase tracking-wider flex items-center gap-2">
+                  <label className="text-xs text-cyan-100 font-semibold uppercase tracking-wider flex items-center gap-2">
                     <User className="h-3 w-3" /> Name
                   </label>
                   <Input
@@ -198,7 +198,7 @@ export default function LoginPage() {
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     placeholder="Wie sollen wir dich nennen?"
-                    className="h-12 rounded-xl bg-white/5 border-cyan-400/20 text-white placeholder:text-white/30"
+                    className="h-12 rounded-xl bg-white/5 border-cyan-400/20 text-white placeholder:text-white/50"
                   />
                 </div>
               ) : null}
@@ -206,7 +206,7 @@ export default function LoginPage() {
               {mode === "login" || (mode === "register" && registerStep === 1) ? (
                 <>
                   <div className="space-y-1.5">
-                    <label className="text-xs text-cyan-200/80 uppercase tracking-wider flex items-center gap-2">
+                    <label className="text-xs text-cyan-100 font-semibold uppercase tracking-wider flex items-center gap-2">
                       <Mail className="h-3 w-3" /> E-Mail
                     </label>
                     <Input
@@ -216,12 +216,12 @@ export default function LoginPage() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="du@beispiel.de"
-                      className="h-12 rounded-xl bg-white/5 border-cyan-400/20 text-white placeholder:text-white/30"
+                      className="h-12 rounded-xl bg-white/5 border-cyan-400/20 text-white placeholder:text-white/50"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs text-cyan-200/80 uppercase tracking-wider flex items-center gap-2">
+                    <label className="text-xs text-cyan-100 font-semibold uppercase tracking-wider flex items-center gap-2">
                       <Lock className="h-3 w-3" /> Passwort
                     </label>
                     <Input
@@ -232,7 +232,7 @@ export default function LoginPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
                       minLength={mode === "register" ? 6 : undefined}
-                      className="h-12 rounded-xl bg-white/5 border-cyan-400/20 text-white placeholder:text-white/30"
+                      className="h-12 rounded-xl bg-white/5 border-cyan-400/20 text-white placeholder:text-white/50"
                     />
                   </div>
                 </>
@@ -276,7 +276,7 @@ export default function LoginPage() {
             </form>
           </div>
 
-          <p className="text-center text-xs text-white/35 mt-6">
+          <p className="text-center text-xs font-medium text-white/85 mt-6">
             Demo: bianca@example.com / demo123 · registrierte Nummern z. B. enden auf …111111 (Bianca) und …222222
             (Matze)
           </p>

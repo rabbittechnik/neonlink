@@ -134,7 +134,7 @@ export function CreateMeetingModal({
             type="button"
             onClick={handleClose}
             disabled={busy}
-            className="p-2 rounded-xl text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-40"
+            className="p-2 rounded-xl text-white hover:text-white hover:bg-white/10 disabled:opacity-40"
             aria-label="Schliessen"
           >
             <X className="h-5 w-5" />
@@ -142,33 +142,33 @@ export function CreateMeetingModal({
         </div>
 
         <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1 min-h-0">
-          <p className="text-xs text-white/45 leading-relaxed">
+          <p className="text-xs text-white/90 leading-relaxed">
             Nur ausgewählte Teilnehmer sehen das Meeting und erhalten den Kalendereintrag — keine Gruppe automatisch.
           </p>
 
           <div>
-            <label className="text-[11px] uppercase tracking-wider text-white/40">Titel</label>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-white/90">Titel</label>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="z. B. Familien-Check-in"
-              className="mt-1 bg-white/5 border-white/10 rounded-xl text-white placeholder:text-white/35"
+              className="mt-1 bg-white/5 border-white/10 rounded-xl text-white placeholder:text-white/55"
             />
           </div>
 
           <div>
-            <label className="text-[11px] uppercase tracking-wider text-white/40">Beschreibung</label>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-white/90">Beschreibung</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
               placeholder="Optional"
-              className="mt-1 w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm text-white placeholder:text-white/35 resize-none"
+              className="mt-1 w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm text-white placeholder:text-white/55 resize-none"
             />
           </div>
 
           <div>
-            <label className="text-[11px] uppercase tracking-wider text-white/40 flex items-center gap-1">
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-white/90 flex items-center gap-1">
               <Users className="h-3 w-3" /> Raum
             </label>
             <select
@@ -186,7 +186,7 @@ export function CreateMeetingModal({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-[11px] uppercase tracking-wider text-white/40 flex items-center gap-1">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-white/90 flex items-center gap-1">
                 <Clock className="h-3 w-3" /> Start
               </label>
               <Input
@@ -197,7 +197,7 @@ export function CreateMeetingModal({
               />
             </div>
             <div>
-              <label className="text-[11px] uppercase tracking-wider text-white/40 flex items-center gap-1">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-white/90 flex items-center gap-1">
                 <Clock className="h-3 w-3" /> Ende
               </label>
               <Input
@@ -210,12 +210,12 @@ export function CreateMeetingModal({
           </div>
 
           <div>
-            <div className="text-[11px] uppercase tracking-wider text-white/40 flex items-center gap-1 mb-2">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-white/90 flex items-center gap-1 mb-2">
               <Users className="h-3 w-3" /> Teilnehmer (Workspace)
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/5 max-h-36 overflow-y-auto divide-y divide-white/5">
               {others.length === 0 ? (
-                <div className="p-3 text-xs text-white/45">Keine weiteren Mitglieder im Workspace.</div>
+                <div className="p-3 text-xs text-white/90">Keine weiteren Mitglieder im Workspace.</div>
               ) : (
                 others.map((m) => (
                   <label
@@ -233,7 +233,7 @@ export function CreateMeetingModal({
                 ))
               )}
             </div>
-            <p className="text-[10px] text-white/35 mt-1.5">Du bist als Organisator automatisch dabei.</p>
+            <p className="text-[10px] text-white/85 mt-1.5">Du bist als Organisator automatisch dabei.</p>
           </div>
 
           {error ? <p className="text-sm text-red-300">{error}</p> : null}
@@ -245,7 +245,7 @@ export function CreateMeetingModal({
             variant="ghost"
             onClick={handleClose}
             disabled={busy}
-            className="rounded-xl text-white/70 hover:bg-white/10"
+            className="rounded-xl text-white hover:bg-white/10"
           >
             Abbrechen
           </Button>

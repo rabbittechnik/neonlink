@@ -199,7 +199,7 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
                 type="button"
                 onClick={onClose}
                 disabled={busy}
-                className="p-2 rounded-xl text-white/55 hover:text-white hover:bg-white/10"
+                className="p-2 rounded-xl text-white hover:text-white hover:bg-white/10"
                 aria-label="Schließen"
               >
                 <X className="h-5 w-5" />
@@ -212,7 +212,7 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
                 role="status"
                 aria-label="Verifizierungsstatus Kontaktdaten"
               >
-                <div className="text-[10px] uppercase tracking-wider text-white/40 mb-2">Verifizierungsstatus</div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-white/90 mb-2">Verifizierungsstatus</div>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <div
                     className={`flex flex-1 items-center justify-between gap-2 rounded-xl border px-3 py-2.5 ${
@@ -221,7 +221,7 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
                         : "border-amber-400/40 bg-amber-500/10"
                     }`}
                   >
-                    <span className="text-xs text-white/75 flex items-center gap-2 min-w-0">
+                    <span className="text-xs text-white flex items-center gap-2 min-w-0">
                       <Mail className="h-3.5 w-3.5 text-cyan-300/90 shrink-0" />
                       <span className="truncate">E-Mail (Profil)</span>
                     </span>
@@ -241,7 +241,7 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
                         : "border-fuchsia-400/35 bg-fuchsia-950/20"
                     }`}
                   >
-                    <span className="text-xs text-white/75 flex items-center gap-2 min-w-0">
+                    <span className="text-xs text-white flex items-center gap-2 min-w-0">
                       <Phone className="h-3.5 w-3.5 text-fuchsia-300/90 shrink-0" />
                       <span className="truncate">Telefonnummer</span>
                     </span>
@@ -297,7 +297,7 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
                 <div className="flex gap-2">
                   <Button
                     type="button"
-                    className="h-9 px-3 text-sm rounded-xl border border-white/15 bg-white/5 text-white/90"
+                    className="h-9 px-3 text-sm rounded-xl border border-white/15 bg-white/5 text-white"
                     onClick={() => fileRef.current?.click()}
                     disabled={avatarBusy}
                   >
@@ -307,7 +307,7 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
                     <Button
                       type="button"
                       variant="ghost"
-                      className="h-9 px-3 text-sm text-white/50 hover:text-white"
+                      className="h-9 px-3 text-sm text-white/90 hover:text-white"
                       onClick={() => void setAvatar(null)}
                       disabled={avatarBusy}
                     >
@@ -315,7 +315,7 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
                     </Button>
                   ) : null}
                 </div>
-                <p className="text-[11px] text-white/40 text-center">Klick auf das Bild zum Hochladen · Vorschau sofort sichtbar</p>
+                <p className="text-[11px] text-white/90 text-center">Klick auf das Bild zum Hochladen · Vorschau sofort sichtbar</p>
               </div>
 
               <div
@@ -326,7 +326,7 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
                   <Palette className="h-3.5 w-3.5" />
                   Chat-Schriftfarbe
                 </div>
-                <p className="text-[11px] text-white/45 leading-snug">
+                <p className="text-[11px] text-white/90 leading-snug">
                   Name und Nachrichtentext im Live-Chat — für alle sichtbar, die deine Nachrichten lesen.
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -336,7 +336,7 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
                     className={`rounded-xl border px-2.5 py-1 text-[11px] font-medium transition-colors ${
                       chatTextColor === null
                         ? "border-cyan-400/50 bg-cyan-500/20 text-cyan-100"
-                        : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"
+                        : "border-white/15 bg-white/5 text-white hover:bg-white/10"
                     }`}
                   >
                     Standard
@@ -355,7 +355,7 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
                   ))}
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <label className="text-xs text-white/50">Eigene Farbe</label>
+                  <label className="text-xs text-white/90">Eigene Farbe</label>
                   <input
                     type="color"
                     value={chatTextColor ?? "#cbd5e1"}
@@ -367,33 +367,33 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 space-y-3">
-                <div className="text-xs uppercase tracking-wider text-white/40">Identität</div>
-                <label className="block text-xs text-white/50">Anzeigename</label>
+                <div className="text-xs font-semibold uppercase tracking-wider text-white/90">Identität</div>
+                <label className="block text-xs text-white/90">Anzeigename</label>
                 <Input
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   className="bg-white/5 border-white/12 rounded-xl text-white"
                 />
-                <label className="block text-xs text-white/50">Kurzstatus (für andere sichtbar)</label>
+                <label className="block text-xs text-white/90">Kurzstatus (für andere sichtbar)</label>
                 <Input
                   value={statusMessage}
                   onChange={(e) => setStatusMessage(e.target.value)}
                   placeholder="z. B. In einer Besprechung"
-                  className="bg-white/5 border-white/12 rounded-xl text-white placeholder:text-white/30"
+                  className="bg-white/5 border-white/12 rounded-xl text-white placeholder:text-white/55"
                 />
-                <label className="block text-xs text-white/50">Bio / Beschreibung</label>
+                <label className="block text-xs text-white/90">Bio / Beschreibung</label>
                 <textarea
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   rows={3}
-                  className="w-full rounded-xl bg-white/5 border border-white/12 px-3 py-2 text-sm text-white placeholder:text-white/30 resize-none"
+                  className="w-full rounded-xl bg-white/5 border border-white/12 px-3 py-2 text-sm text-white placeholder:text-white/55 resize-none"
                   placeholder="Erzähl etwas über dich…"
                 />
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 space-y-3">
-                <div className="text-xs uppercase tracking-wider text-white/40">Status</div>
-                <label className="block text-xs text-white/50">Global (Standard)</label>
+                <div className="text-xs font-semibold uppercase tracking-wider text-white/90">Status</div>
+                <label className="block text-xs text-white/90">Global (Standard)</label>
                 <select
                   value={globalStatus}
                   onChange={(e) => setGlobalStatus(e.target.value as PresenceKind)}
@@ -405,7 +405,7 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
                     </option>
                   ))}
                 </select>
-                <label className="block text-xs text-white/50 flex items-center gap-2">
+                <label className="block text-xs text-white/90 flex items-center gap-2">
                   In Bereich „{activeSectionLabel}“
                   {sectionStatus === "on_call" ? (
                     <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-red-500/25 text-red-200 animate-pulse">
@@ -424,7 +424,7 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
                     </option>
                   ))}
                 </select>
-                <p className="text-[11px] text-white/45">
+                <p className="text-[11px] text-white/90">
                   Überschreibt den globalen Status nur in diesem Bereich (z. B. Feuerwehr „Im Einsatz“).
                 </p>
               </div>
@@ -437,11 +437,11 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <label className="text-xs text-white/55 flex items-center gap-1.5">
+                    <label className="text-xs text-white flex items-center gap-1.5">
                       <Mail className="h-3.5 w-3.5 text-cyan-300/80" />
                       E-Mail (Profil)
                     </label>
-                    <span className="flex items-center gap-1 text-[11px] text-white/50">
+                    <span className="flex items-center gap-1 text-[11px] text-white/90">
                       <VerifiedIcon ok={user.emailVerified} />
                       {user.emailVerified ? "verifiziert" : "offen"}
                     </span>
@@ -453,7 +453,7 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
                     className="bg-white/5 border-white/12 rounded-xl text-white"
                   />
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[11px] text-white/45">Sichtbarkeit:</span>
+                    <span className="text-[11px] text-white/90">Sichtbarkeit:</span>
                     <select
                       value={emailVis}
                       onChange={(e) => setEmailVis(e.target.value as ContactVisibility)}
@@ -522,16 +522,16 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
                       </div>
                     ) : null}
                   </div>
-                  <p className="text-[10px] text-white/35">Login-E-Mail: {user.email} (Konto, getrennt von Profil-E-Mail möglich)</p>
+                  <p className="text-[10px] text-white/85">Login-E-Mail: {user.email} (Konto, getrennt von Profil-E-Mail möglich)</p>
                 </div>
 
                 <div className="space-y-2 border-t border-white/10 pt-3">
                   <div className="flex items-center justify-between gap-2">
-                    <label className="text-xs text-white/55 flex items-center gap-1.5">
+                    <label className="text-xs text-white flex items-center gap-1.5">
                       <Phone className="h-3.5 w-3.5 text-fuchsia-300/80" />
                       Telefon
                     </label>
-                    <span className="flex items-center gap-1 text-[11px] text-white/50">
+                    <span className="flex items-center gap-1 text-[11px] text-white/90">
                       <VerifiedIcon ok={user.phoneVerified} />
                       {user.phoneVerified ? "verifiziert" : "offen"}
                     </span>
@@ -542,9 +542,9 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
                     placeholder="z. B. 0176 12345678"
                     className="bg-white/5 border-white/12 rounded-xl text-white"
                   />
-                  <p className="text-[11px] text-white/45">Vorschau (maskiert für andere): {maskPhoneDigits(phoneInput || user.phoneDigits || "")}</p>
+                  <p className="text-[11px] text-white/90">Vorschau (maskiert für andere): {maskPhoneDigits(phoneInput || user.phoneDigits || "")}</p>
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[11px] text-white/45">Sichtbarkeit:</span>
+                    <span className="text-[11px] text-white/90">Sichtbarkeit:</span>
                     <select
                       value={phoneVis}
                       onChange={(e) => setPhoneVis(e.target.value as ContactVisibility)}
@@ -605,7 +605,7 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
             </div>
 
             <div className="flex gap-2 justify-end px-5 py-4 border-t border-white/10 shrink-0 bg-[#050a14]/90">
-              <Button type="button" variant="ghost" className="text-white/70" onClick={onClose} disabled={busy}>
+              <Button type="button" variant="ghost" className="text-white" onClick={onClose} disabled={busy}>
                 Schließen
               </Button>
               <Button

@@ -169,7 +169,7 @@ export function MeetingsWorkspacePanel({
                       variant="ghost"
                       disabled={renameBusy}
                       onClick={() => setRenamingRoomId(null)}
-                      className="h-8 rounded-lg text-white/70 text-xs"
+                      className="h-8 rounded-lg text-white text-xs"
                     >
                       Abbrechen
                     </Button>
@@ -187,7 +187,7 @@ export function MeetingsWorkspacePanel({
                   <button
                     type="button"
                     onClick={() => onSelectRoom(r.id)}
-                    className="flex-1 min-w-0 text-left px-3 py-2.5 text-sm text-white/90 hover:bg-white/[0.06] rounded-l-2xl"
+                    className="flex-1 min-w-0 text-left px-3 py-2.5 text-sm text-white hover:bg-white/[0.06] rounded-l-2xl"
                   >
                     <Video className="inline h-3.5 w-3.5 mr-2 -mt-0.5 text-cyan-300/80" />
                     <span className="truncate align-middle">{r.name}</span>
@@ -202,7 +202,7 @@ export function MeetingsWorkspacePanel({
                         setRenamingRoomId(r.id);
                         setRenameDraft(r.name);
                       }}
-                      className="shrink-0 w-9 flex items-center justify-center text-white/45 hover:text-cyan-200 hover:bg-white/10 rounded-none border-l border-white/10"
+                      className="shrink-0 w-9 flex items-center justify-center text-white/90 hover:text-cyan-200 hover:bg-white/10 rounded-none border-l border-white/10"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
@@ -225,7 +225,7 @@ export function MeetingsWorkspacePanel({
               type="button"
               variant="ghost"
               onClick={() => setNewRoomOpen((v) => !v)}
-              className="w-full mt-2 rounded-2xl border border-dashed border-white/20 text-white/60 hover:text-cyan-200 hover:border-cyan-400/30 text-xs h-9"
+              className="w-full mt-2 rounded-2xl border border-dashed border-white/20 text-white hover:text-cyan-200 hover:border-cyan-400/30 text-xs h-9"
             >
               <Plus className="h-3.5 w-3.5 mr-1 inline" />
               Raum erstellen
@@ -268,9 +268,9 @@ export function MeetingsWorkspacePanel({
           </CardHeader>
           <CardContent className="flex-1 min-h-0 overflow-y-auto pt-4 space-y-3">
             {!activeRoomId ? (
-              <p className="text-sm text-white/45 text-center py-12">Links einen Meetingraum auswählen.</p>
+              <p className="text-sm text-white/90 text-center py-12">Links einen Meetingraum auswählen.</p>
             ) : meetings.length === 0 ? (
-              <p className="text-sm text-white/45 text-center py-12">
+              <p className="text-sm text-white/90 text-center py-12">
                 Noch keine Meetings, an denen du teilnimmst. Plane eines mit „Meeting planen“.
               </p>
             ) : (
@@ -298,7 +298,7 @@ export function MeetingsWorkspacePanel({
                           <CalendarDays className="h-3.5 w-3.5" />
                           {formatRange(m.startsAt, m.endsAt)}
                         </div>
-                        <div className="text-[11px] text-white/45 mt-1 flex items-center gap-1">
+                        <div className="text-[11px] text-white/90 mt-1 flex items-center gap-1">
                           <Users className="h-3 w-3" />
                           {m.participantUserIds.length + 1} Teilnehmer (inkl. Organisator)
                         </div>
@@ -353,10 +353,10 @@ export function MeetingsWorkspacePanel({
             <h3 className="text-lg font-semibold text-white pr-8">{detail.title}</h3>
             <p className="text-xs text-cyan-200/80 mt-1">{formatRange(detail.startsAt, detail.endsAt)}</p>
             {detail.description ? (
-              <p className="text-sm text-white/65 mt-3 leading-relaxed">{detail.description}</p>
+              <p className="text-sm text-white mt-3 leading-relaxed">{detail.description}</p>
             ) : null}
-            <div className="mt-4 text-xs text-white/50">
-              <div className="font-medium text-white/70 mb-1">Teilnehmer</div>
+            <div className="mt-4 text-xs text-white/90">
+              <div className="font-medium text-white mb-1">Teilnehmer</div>
               <ul className="space-y-1">
                 <li>• {namesById[detail.createdByUserId] ?? "Organisator"} (Organisator)</li>
                 {detail.participantUserIds.map((id) => (
@@ -367,7 +367,7 @@ export function MeetingsWorkspacePanel({
             <Button
               type="button"
               variant="ghost"
-              className="mt-4 w-full rounded-xl text-white/70"
+              className="mt-4 w-full rounded-xl text-white"
               onClick={() => setDetailId(null)}
             >
               Schliessen
