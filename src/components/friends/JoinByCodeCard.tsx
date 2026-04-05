@@ -1,0 +1,66 @@
+import React, { useState } from "react";
+import { UserPlus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+type Props = {
+  onAddFriendByCode: (code: string) => void;
+  highlight?: boolean;
+};
+
+export function JoinByCodeCard({ onAddFriendByCode, highlight }: Props) {
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = () => {
+    const c = code.trim();
+    if (!c) return;
+    setBusy(true);
+    Promise.resolve(onAddFriendByCode(c)).finally(() => setBusy(false));
+  };
+
+  return (
+    <Card
+      id="friends-join-by-code"
+      className={`rounded-3xl border text-white backdrop-blur-xl shadow-lg shadow-black/25 transition-[box-shadow,border-color] duration-300 ${
+        highlight
+          ? "border-cyan-400/50 bg-gradient-to-br from-cyan-500/15 to-white/[0.04] ring-2 ring-cyan-400/25"
+          : "border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02]"
+      }`}
+    >
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <UserPlus className="h-4 w-4 text-cyan-300" />
+          Freund per Code
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2 pt-0">
+        <label className="sr-only" htmlFor="friends-add-by-code">
+          Freundescode
+        </label>
+        <Input
+          id="friends-add-by-code"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") submit();
+          }}
+          placeholder="z. B. NLF-ABC123"
+          className="w-full min-w-0 bg-white/5 border-white/10 rounded-xl h-10 text-sm placeholder:text-white/40 font-mono"
+        />
+        <Button
+          type="button"
+          disabled={busy || !code.trim()}
+          onClick={submit}
+          className="w-full h-9 rounded-xl border border-cyan-400/35 bg-cyan-500/20 text-cyan-50 hover:bg-cyan-500/30 text-xs"
+        >
+          {busy ? "Wird gesendet…" : "Beitreten / Anfrage senden"}
+        </Button>
+        <p className="text-[10px] text-white/45 leading-snug">
+          Wir suchen den Nutzer und senden eine Freundschaftsanfrage — du wirst benachrichtigt, wenn er sie annimmt.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}

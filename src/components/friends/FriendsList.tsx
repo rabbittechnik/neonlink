@@ -1,0 +1,151 @@
+import React from "react";
+import { MessageCircle } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { resolvePresenceForSection, type PresenceKind } from "@/utils/resolveUserPresence";
+import type { FriendGroupOption, FriendListEntry, SectionId } from "./types";
+
+const STATUS_PILL: Record<
+  PresenceKind,
+  { label: string; className: string }
+> = {
+  online: {
+    label: "Online",
+    className: "bg-emerald-500/20 text-emerald-200 border-emerald-400/35",
+  },
+  away: {
+    label: "Abwesend",
+    className: "bg-amber-500/20 text-amber-100 border-amber-400/35",
+  },
+  busy: {
+    label: "Beschäftigt",
+    className: "bg-violet-500/20 text-violet-100 border-violet-400/35",
+  },
+  offline: {
+    label: "Offline",
+    className: "bg-white/10 text-white/55 border-white/15",
+  },
+  on_call: {
+    label: "Im Einsatz",
+    className: "bg-red-600/35 text-red-100 border-red-400/55",
+  },
+};
+
+function StatusDot({ presence }: { presence: PresenceKind }) {
+  const s = STATUS_PILL[presence];
+  return (
+    <span
+      className={`inline-flex items-center text-[9px] font-medium px-1.5 py-0.5 rounded-full border ${s.className}`}
+    >
+      {s.label}
+    </span>
+  );
+}
+
+type Props = {
+  friends: FriendListEntry[];
+  activeSection: SectionId;
+  groupOptions: FriendGroupOption[];
+  onSetFriendGroup: (friendId: string, group: FriendListEntry["group"]) => void;
+  onOpenPrivateChat: (friendId: string) => void;
+  chatBusyId: string | null;
+};
+
+export function FriendsList({
+  friends,
+  activeSection,
+  groupOptions,
+  onSetFriendGroup,
+  onOpenPrivateChat,
+  chatBusyId,
+}: Props) {
+  return (
+    <Card className="rounded-3xl border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] text-white backdrop-blur-xl shadow-lg shadow-black/25">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <span className="text-base" aria-hidden>
+            👥
+          </span>
+          Deine Freunde
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-1.5 pt-0 max-h-56 overflow-y-auto pr-1">
+        {friends.length === 0 ? (
+          <p className="text-xs text-white/45 py-6 text-center leading-relaxed px-2">
+            Noch keine Freunde. Nutze Code oder Suche, um Kontakte hinzuzufügen.
+          </p>
+        ) : (
+          friends.map((friend) => {
+            const presence = resolvePresenceForSection(
+              friend.status,
+              friend.statusBySection as Record<string, string> | undefined,
+              activeSection
+            );
+            const opt = groupOptions.find((g) => g.value === friend.group);
+            return (
+              <button
+                key={friend.id}
+                type="button"
+                onClick={() => onOpenPrivateChat(friend.id)}
+                disabled={chatBusyId === friend.id}
+                className="w-full text-left rounded-2xl border border-white/10 bg-black/20 p-2.5 hover:bg-white/[0.07] hover:border-cyan-400/25 transition-all group flex gap-2.5 items-center min-w-0 disabled:opacity-60"
+              >
+                <div className="relative shrink-0">
+                  <Avatar className="h-11 w-11 overflow-hidden rounded-full border border-white/15 ring-2 ring-transparent group-hover:ring-cyan-400/30 transition-all">
+                    {friend.avatarUrl ? (
+                      <img src={friend.avatarUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <AvatarFallback className="flex h-full w-full items-center justify-center bg-gradient-to-br from-cyan-500/30 to-violet-500/20 text-sm">
+                        {friend.displayName.slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
+                  <span
+                    className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-[#0a1020] ${
+                      presence === "online"
+                        ? "bg-emerald-400"
+                        : presence === "away"
+                          ? "bg-amber-400"
+                          : presence === "busy"
+                            ? "bg-violet-400"
+                            : presence === "on_call"
+                              ? "bg-red-400 animate-pulse"
+                              : "bg-white/25"
+                    }`}
+                    title={STATUS_PILL[presence].label}
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm font-medium truncate text-white">{friend.displayName}</span>
+                    <MessageCircle className="h-3.5 w-3.5 text-cyan-400/50 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                    <StatusDot presence={presence} />
+                    <span className="text-[10px] text-white/40" title={opt?.label}>
+                      {opt?.emoji} {opt?.label ?? friend.group}
+                    </span>
+                  </div>
+                  <select
+                    className="mt-2 w-full max-w-full rounded-lg bg-white/5 border border-white/10 text-[11px] py-1 px-2 text-white/90 pointer-events-auto"
+                    value={friend.group}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => {
+                      onSetFriendGroup(friend.id, e.target.value as FriendListEntry["group"]);
+                    }}
+                  >
+                    {groupOptions.map((g) => (
+                      <option key={g.value} value={g.value} className="bg-[#121c31] text-white">
+                        {g.emoji} {g.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </button>
+            );
+          })
+        )}
+      </CardContent>
+    </Card>
+  );
+}

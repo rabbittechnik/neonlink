@@ -1,0 +1,8 @@
+node_modules/
+dist/
+server/dist/
+server/node_modules/
+server/data/
+release/
+*.local
+.DS_Store
