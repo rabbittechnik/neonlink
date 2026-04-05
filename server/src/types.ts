@@ -223,6 +223,43 @@ export type FinanceRecord = {
   extraAttachmentDataUrl: string | null;
   /** leer = nur Besitzer; sonst Workspace-Mitglieder-IDs mit Leserecht */
   visibilityUserIds: string[];
+  /** Optional: Zuordnung zu einem Haushalt aus dem Finanz-Haushaltsplan (gleicher Workspace). */
+  linkedHouseholdId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/** Monatliche Fixkosten pro Haushalt (NeonLink Haushaltsplan). */
+export type MietePaidBy = "person1" | "person2" | "household";
+
+export type HouseholdMonthlyFixedCosts = {
+  mieteCents: number;
+  mietePaidBy: MietePaidBy;
+  internetCents: number;
+  versicherungenCents: number;
+  autoCents: number;
+  stromCents: number;
+  wasserCents: number;
+  heizungCents: number;
+  handyCents: number;
+  streamingCents: number;
+  krediteCents: number;
+  lebensmittelCents: number;
+};
+
+export type FinanceHouseholdEntry = {
+  id: string;
+  name: string;
+  costs: HouseholdMonthlyFixedCosts;
+};
+
+/** Gemeinsamer Finanz-/Haushaltsplan: alle memberUserIds sehen dieselben Daten (Finanzen + Verträge). */
+export type FinanceHouseholdPlan = {
+  id: string;
+  workspaceId: string;
+  ownerUserId: string;
+  memberUserIds: string[];
+  households: FinanceHouseholdEntry[];
   createdAt: string;
   updatedAt: string;
 };

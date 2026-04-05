@@ -18,6 +18,8 @@ export type FinanceRecordSummary = {
   payee: string | null;
   notes: string | null;
   visibilityUserIds: string[];
+  /** Optional: ID eines Haushalts aus dem Finanz-Haushaltsplan */
+  linkedHouseholdId: string | null;
   createdAt: string;
   updatedAt: string;
   hasImage: boolean;

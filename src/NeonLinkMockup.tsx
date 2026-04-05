@@ -51,6 +51,9 @@ import { PeerProfileModal } from "@/components/profile/PeerProfileModal";
 import { FriendsPanel } from "@/components/friends/FriendsPanel";
 import { FriendCategoryModal, type FriendshipFlowKey } from "@/components/friends/FriendCategoryModal";
 import { ChatAttachmentMedia } from "@/components/chat/ChatAttachmentMedia";
+import { ChatMessageText } from "@/components/chat/ChatMessageText";
+import { CHAT_EMOJI_SECTIONS } from "@/constants/chatEmojis";
+import { CHAT_PRESET_GIFS } from "@/constants/chatGifs";
 import { MeetingsWorkspacePanel } from "@/components/meetings/MeetingsWorkspacePanel";
 import { NewsFeedPanel } from "@/components/news/NewsFeedPanel";
 import type { ApiCalendarEvent } from "@/types/calendar";
@@ -150,7 +153,23 @@ type ServerMessage = {
 
 type OutgoingAttachment = { fileName: string; mimeType: string; sizeBytes: number; dataBase64?: string };
 
-const CHAT_QUICK_REACTIONS = ["👍", "❤️", "😂", "🔥", "👏", "✅"] as const;
+const CHAT_QUICK_REACTIONS = [
+  "👍",
+  "❤️",
+  "😂",
+  "🔥",
+  "👏",
+  "✅",
+  "😮",
+  "🎉",
+  "💯",
+  "🙏",
+  "😍",
+  "👋",
+  "✨",
+  "🤝",
+  "⭐",
+] as const;
 
 function fileToBase64Data(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -383,7 +402,7 @@ export default function NeonLinkMockup() {
   const [chatSidebarSearch, setChatSidebarSearch] = useState("");
   const [reactionBarForMessageId, setReactionBarForMessageId] = useState<string | null>(null);
   const [messageOverflowId, setMessageOverflowId] = useState<string | null>(null);
-  const [emojiBarOpen, setEmojiBarOpen] = useState(false);
+  const [chatInsertPicker, setChatInsertPicker] = useState<null | "emoji" | "gif">(null);
   const [friendCategoryOpen, setFriendCategoryOpen] = useState(false);
   const [friendCategoryCtx, setFriendCategoryCtx] = useState<
     null | { mode: "send"; toUserId: string } | { mode: "accept"; requestId: string }
@@ -1016,11 +1035,11 @@ export default function NeonLinkMockup() {
   }, [messageOverflowId]);
 
   useEffect(() => {
-    if (!emojiBarOpen) return;
-    const close = () => setEmojiBarOpen(false);
+    if (!chatInsertPicker) return;
+    const close = () => setChatInsertPicker(null);
     window.addEventListener("click", close);
     return () => window.removeEventListener("click", close);
-  }, [emojiBarOpen]);
+  }, [chatInsertPicker]);
 
   useEffect(() => {
     if (!token || !currentUser) return;
@@ -2705,9 +2724,10 @@ export default function NeonLinkMockup() {
                         {m.calendarAnnouncement ? (
                           <CalendarAnnouncementMessage payload={m.calendarAnnouncement} />
                         ) : (
-                          <span className="block whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-                            {m.text}
-                          </span>
+                          <ChatMessageText
+                            text={m.text}
+                            className="block whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
+                          />
                         )}
                       </div>
                       {m.attachments?.length ? (
@@ -2937,33 +2957,95 @@ export default function NeonLinkMockup() {
                       variant="ghost"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setEmojiBarOpen((o) => !o);
+                        setChatInsertPicker((p) => (p ? null : "emoji"));
                       }}
                       className="rounded-xl text-white hover:text-white hover:bg-white/10 h-10 w-10 p-0 inline-flex items-center justify-center"
-                      aria-label="Emoji einfügen"
-                      aria-expanded={emojiBarOpen}
+                      aria-label="Emoji oder GIF einfügen"
+                      aria-expanded={Boolean(chatInsertPicker)}
                     >
                       <Smile className="h-5 w-5" />
                     </Button>
-                    {emojiBarOpen ? (
+                    {chatInsertPicker ? (
                       <div
-                        className="absolute bottom-full right-0 mb-2 z-30 flex flex-wrap gap-1 max-w-[14rem] rounded-xl border border-white/15 bg-[#0f172a] p-2 shadow-xl shadow-black/50"
+                        className="absolute bottom-full right-0 mb-2 z-30 w-[min(100vw-2rem,22rem)] max-h-[min(70vh,22rem)] flex flex-col rounded-xl border border-white/15 bg-[#0f172a] shadow-xl shadow-black/50 overflow-hidden"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {(["😀", "😊", "👍", "❤️", "🎉", "🔥", "🙏", "👏"] as const).map((emoji) => (
+                        <div className="flex gap-1 p-2 border-b border-white/10 shrink-0">
                           <button
-                            key={emoji}
                             type="button"
-                            className="rounded-lg border border-white/10 bg-white/10 px-2 py-1 text-lg leading-none hover:bg-white/20"
-                            onClick={() => {
-                              setMessageInput((p) => `${p}${emoji}`);
-                              setEmojiBarOpen(false);
-                              focusMessageInput();
-                            }}
+                            className={`flex-1 rounded-lg py-1.5 text-xs font-medium ${
+                              chatInsertPicker === "emoji"
+                                ? "bg-cyan-500/25 text-cyan-100"
+                                : "text-white/60 hover:bg-white/10"
+                            }`}
+                            onClick={() => setChatInsertPicker("emoji")}
                           >
-                            {emoji}
+                            Emoji
                           </button>
-                        ))}
+                          <button
+                            type="button"
+                            className={`flex-1 rounded-lg py-1.5 text-xs font-medium ${
+                              chatInsertPicker === "gif"
+                                ? "bg-violet-500/25 text-violet-100"
+                                : "text-white/60 hover:bg-white/10"
+                            }`}
+                            onClick={() => setChatInsertPicker("gif")}
+                          >
+                            GIF
+                          </button>
+                        </div>
+                        <div className="overflow-y-auto p-2 min-h-0">
+                          {chatInsertPicker === "emoji" ? (
+                            <div className="space-y-3">
+                              {CHAT_EMOJI_SECTIONS.map((section) => (
+                                <div key={section.title}>
+                                  <div className="text-[10px] uppercase tracking-wide text-white/40 mb-1.5">
+                                    {section.title}
+                                  </div>
+                                  <div className="flex flex-wrap gap-1">
+                                    {section.emojis.map((emoji) => (
+                                      <button
+                                        key={`${section.title}-${emoji}`}
+                                        type="button"
+                                        className="rounded-lg border border-white/10 bg-white/10 px-2 py-1 text-lg leading-none hover:bg-white/20"
+                                        onClick={() => {
+                                          setMessageInput((p) => `${p}${emoji}`);
+                                          setChatInsertPicker(null);
+                                          focusMessageInput();
+                                        }}
+                                      >
+                                        {emoji}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-3 gap-2">
+                              {CHAT_PRESET_GIFS.map((g) => (
+                                <button
+                                  type="button"
+                                  key={g.url}
+                                  className="rounded-lg overflow-hidden border border-white/15 bg-black/30 hover:border-cyan-400/40 transition-colors"
+                                  title={g.label}
+                                  onClick={() => {
+                                    setMessageInput(g.url);
+                                    setChatInsertPicker(null);
+                                    focusMessageInput();
+                                  }}
+                                >
+                                  <img
+                                    src={g.url}
+                                    alt={g.label}
+                                    className="w-full h-14 object-cover"
+                                    loading="lazy"
+                                  />
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ) : null}
                     <Button

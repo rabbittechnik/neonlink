@@ -17,7 +17,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { FinanceRecordDetail, FinanceRecordSummary } from "@/types/finance";
+import type { FinanceHouseholdPlan } from "@/types/financeHousehold";
 import { FINANCE_CATEGORY_LABELS, FINANCE_CATEGORY_OPTIONS } from "@/constants/financeCategories";
+import { FinanceHouseholdWizard } from "@/components/finance/FinanceHouseholdWizard";
+import { HouseholdBudgetPanel } from "@/components/finance/HouseholdBudgetPanel";
 import { fileToAvatarDataUrl } from "@/utils/fileToAvatarDataUrl";
 import { readFilesFromFileInputEvent } from "@/utils/readFileInputFiles";
 
@@ -67,6 +70,14 @@ export default function FinancePage() {
   const [formImageError, setFormImageError] = useState<string | null>(null);
   const [formImageProcessing, setFormImageProcessing] = useState(false);
   const [formVisibility, setFormVisibility] = useState<Record<string, boolean>>({});
+
+  const [householdLoading, setHouseholdLoading] = useState(true);
+  const [householdNeedsSetup, setHouseholdNeedsSetup] = useState(false);
+  const [householdPlan, setHouseholdPlan] = useState<FinanceHouseholdPlan | null>(null);
+  const [householdFilter, setHouseholdFilter] = useState<string>("");
+  const [formLinkedHouseholdId, setFormLinkedHouseholdId] = useState<string>("");
+  const [detailHouseholdDraft, setDetailHouseholdDraft] = useState<string>("");
+  const [detailHouseholdSaving, setDetailHouseholdSaving] = useState(false);
 
   const fetchJson = useCallback(
     async <T,>(path: string): Promise<T> => {
@@ -131,16 +142,44 @@ export default function FinancePage() {
     try {
       const qs = new URLSearchParams({ workspaceId, scope, kind });
       if (ownerFilter) qs.set("ownerUserId", ownerFilter);
+      if (householdFilter === "__none__") qs.set("linkedHouseholdId", "none");
+      else if (householdFilter) qs.set("linkedHouseholdId", householdFilter);
       const rows = await fetchJson<FinanceRecordSummary[]>(`/finance/records?${qs.toString()}`);
       setRecords(rows);
     } catch {
       setListError("Konnte Einträge nicht laden.");
     }
-  }, [workspaceId, scope, kind, ownerFilter, fetchJson]);
+  }, [workspaceId, scope, kind, ownerFilter, householdFilter, fetchJson]);
 
   useEffect(() => {
     void reloadRecords();
   }, [reloadRecords]);
+
+  const reloadHouseholdPlan = useCallback(async () => {
+    if (!workspaceId) {
+      setHouseholdLoading(false);
+      setHouseholdPlan(null);
+      setHouseholdNeedsSetup(false);
+      return;
+    }
+    setHouseholdLoading(true);
+    try {
+      const data = await fetchJson<{ needsSetup: boolean; plan: FinanceHouseholdPlan | null }>(
+        `/finance/household-plan?workspaceId=${encodeURIComponent(workspaceId)}`
+      );
+      setHouseholdNeedsSetup(Boolean(data.needsSetup));
+      setHouseholdPlan(data.plan);
+    } catch {
+      setHouseholdNeedsSetup(false);
+      setHouseholdPlan(null);
+    } finally {
+      setHouseholdLoading(false);
+    }
+  }, [workspaceId, fetchJson]);
+
+  useEffect(() => {
+    void reloadHouseholdPlan();
+  }, [reloadHouseholdPlan]);
 
   const openDetail = async (id: string) => {
     setDetailLoading(true);
@@ -148,6 +187,7 @@ export default function FinancePage() {
     try {
       const d = await fetchJson<FinanceRecordDetail>(`/finance/records/${id}`);
       setDetail(d);
+      setDetailHouseholdDraft(d.linkedHouseholdId ?? "");
     } catch {
       setDetail(null);
     } finally {
@@ -168,6 +208,42 @@ export default function FinancePage() {
     setFormImageError(null);
     setFormImageProcessing(false);
     setFormVisibility({});
+    setFormLinkedHouseholdId("");
+  };
+
+  const householdNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    if (!householdPlan) return m;
+    for (const h of householdPlan.households) m.set(h.id, h.name);
+    return m;
+  }, [householdPlan]);
+
+  const canEditFinanceDetail = useMemo(() => {
+    if (!detail || !user) return false;
+    if (detail.ownerUserId === user.id) return true;
+    if (!householdPlan) return false;
+    return (
+      householdPlan.memberUserIds.includes(user.id) &&
+      householdPlan.memberUserIds.includes(detail.ownerUserId)
+    );
+  }, [detail, user, householdPlan]);
+
+  const saveDetailLinkedHousehold = async () => {
+    if (!detail || !canEditFinanceDetail) return;
+    setDetailHouseholdSaving(true);
+    try {
+      const res = await authFetch(`/finance/records/${detail.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          linkedHouseholdId: detailHouseholdDraft || null,
+        }),
+      });
+      if (!res.ok) return;
+      await openDetail(detail.id);
+      await reloadRecords();
+    } finally {
+      setDetailHouseholdSaving(false);
+    }
   };
 
   const submitCreate = async () => {
@@ -196,6 +272,7 @@ export default function FinancePage() {
           imageDataUrl: formImage,
           extraAttachmentDataUrl: formExtra,
           visibilityUserIds: vis,
+          linkedHouseholdId: formLinkedHouseholdId || null,
         }),
       });
       if (res.status === 401) {
@@ -274,12 +351,38 @@ export default function FinancePage() {
           Dein privater Bereich für <span className="text-white/85">Rechnungen</span> und{" "}
           <span className="text-white/85">Einnahmen</span> (Lohn, Verkäufe, …). Nach dem Fotografieren der
           Beleg bitte Betrag, Fälligkeit und Empfänger eintragen — automatische Texterkennung (OCR) können wir
-          später anbinden.{" "}
+          später anbinden. Mit einem eingerichteten Haushaltsplan kannst du Belege optional einem{" "}
+          <span className="text-white/85">Haushalt zuordnen</span> (Filter &amp; Übersicht).{" "}
           <span className="text-amber-200/90">
             Sichtbarkeit: nur du, bis du Workspace-Mitglieder auswählst. Pro Person filterbar, damit nichts
             vermischt.
           </span>
         </p>
+
+        {!loading && workspaceId && user ? (
+          householdLoading ? (
+            <div className="flex items-center gap-2 text-cyan-200/80 mb-6">
+              <Loader2 className="h-5 w-5 animate-spin" /> Haushaltsplan wird geladen…
+            </div>
+          ) : householdNeedsSetup ? (
+            <FinanceHouseholdWizard
+              workspaceId={workspaceId}
+              members={members}
+              currentUserId={user.id}
+              authFetch={authFetch}
+              onDone={() => void reloadHouseholdPlan()}
+            />
+          ) : householdPlan ? (
+            <HouseholdBudgetPanel
+              plan={householdPlan}
+              workspaceId={workspaceId}
+              currentUserId={user.id}
+              members={members}
+              authFetch={authFetch}
+              onUpdated={() => void reloadHouseholdPlan()}
+            />
+          ) : null
+        ) : null}
 
         {loading ? (
           <div className="flex items-center gap-2 text-cyan-200/80">
@@ -360,6 +463,24 @@ export default function FinancePage() {
                     ))}
                 </select>
               </div>
+              {householdPlan && !householdNeedsSetup ? (
+                <div>
+                  <label className="block text-xs text-white/50 mb-1">Haushalt</label>
+                  <select
+                    className="rounded-xl bg-white/10 border border-white/15 px-3 py-2 text-sm max-w-[14rem]"
+                    value={householdFilter}
+                    onChange={(e) => setHouseholdFilter(e.target.value)}
+                  >
+                    <option value="">Alle Belege</option>
+                    <option value="__none__">Ohne Zuordnung</option>
+                    {householdPlan.households.map((h) => (
+                      <option key={h.id} value={h.id}>
+                        {h.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
               <Button
                 type="button"
                 onClick={() => {
@@ -400,6 +521,11 @@ export default function FinancePage() {
                         <div className="text-emerald-200/90 text-xl mt-1">
                           {formatMoney(r.amountCents, r.currency)}
                         </div>
+                        {r.linkedHouseholdId ? (
+                          <div className="text-[11px] text-cyan-200/80 mt-1.5">
+                            Haushalt: {householdNameById.get(r.linkedHouseholdId) ?? "—"}
+                          </div>
+                        ) : null}
                       </div>
                       <span
                         className={`text-xs px-2 py-1 rounded-full shrink-0 ${
@@ -589,6 +715,23 @@ export default function FinancePage() {
                   placeholder="Vertragsnummer, IBAN, …"
                 />
               </div>
+              {householdPlan && !householdNeedsSetup ? (
+                <div>
+                  <label className="text-xs text-white/55">Beleg einem Haushalt zuordnen (optional)</label>
+                  <select
+                    className="mt-1 w-full rounded-xl bg-white/10 border border-white/15 px-3 py-2 text-sm"
+                    value={formLinkedHouseholdId}
+                    onChange={(e) => setFormLinkedHouseholdId(e.target.value)}
+                  >
+                    <option value="">Keine Zuordnung</option>
+                    {householdPlan.households.map((h) => (
+                      <option key={h.id} value={h.id}>
+                        {h.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
               <div>
                 <label className="text-xs text-white/55 flex items-center gap-1">
                   <Users className="h-3 w-3" /> Mit Workspace-Mitgliedern teilen (Lesen)
@@ -696,11 +839,54 @@ export default function FinancePage() {
                         {new Date(detail.paidAt).toLocaleDateString("de-DE")}
                       </div>
                     ) : null}
+                    {householdPlan && !householdNeedsSetup ? (
+                      <div className="col-span-2 space-y-2">
+                        <span className="text-white/45">Haushalt:</span>{" "}
+                        {canEditFinanceDetail ? (
+                          <div className="flex flex-wrap items-center gap-2 mt-1">
+                            <select
+                              className="rounded-xl bg-white/10 border border-white/15 px-3 py-2 text-sm flex-1 min-w-[12rem]"
+                              value={detailHouseholdDraft}
+                              onChange={(e) => setDetailHouseholdDraft(e.target.value)}
+                            >
+                              <option value="">Keine Zuordnung</option>
+                              {householdPlan.households.map((h) => (
+                                <option key={h.id} value={h.id}>
+                                  {h.name}
+                                </option>
+                              ))}
+                            </select>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              disabled={
+                                detailHouseholdSaving ||
+                                (detailHouseholdDraft || "") === (detail.linkedHouseholdId ?? "")
+                              }
+                              onClick={() => void saveDetailLinkedHousehold()}
+                              className="text-xs py-2 px-3 border border-white/15 shrink-0"
+                            >
+                              {detailHouseholdSaving ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                "Speichern"
+                              )}
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-white/85">
+                            {detail.linkedHouseholdId
+                              ? householdNameById.get(detail.linkedHouseholdId) ?? "—"
+                              : "—"}
+                          </span>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
                   {detail.notes ? (
                     <p className="text-sm text-white/75 whitespace-pre-wrap">{detail.notes}</p>
                   ) : null}
-                  {detail.ownerUserId === mine ? (
+                  {canEditFinanceDetail ? (
                     <div className="flex flex-wrap gap-2 pt-2">
                       {detail.status !== "paid" && detail.kind === "expense" ? (
                         <Button
@@ -730,7 +916,7 @@ export default function FinancePage() {
                       </Button>
                     </div>
                   ) : (
-                    <p className="text-xs text-white/45">Nur der Besitzer kann ändern oder löschen.</p>
+                    <p className="text-xs text-white/45">Keine Berechtigung zum Ändern oder Löschen.</p>
                   )}
                 </>
               ) : (

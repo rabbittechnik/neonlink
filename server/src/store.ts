@@ -13,8 +13,12 @@ import type {
   FamilyCalendarSlot,
   FinanceCategory,
   FinanceKind,
+  FinanceHouseholdEntry,
+  FinanceHouseholdPlan,
   FinanceRecord,
   FinanceScope,
+  HouseholdMonthlyFixedCosts,
+  MietePaidBy,
   Meeting,
   MeetingRoom,
   Message,
@@ -1961,15 +1965,53 @@ function isValidDataUrlImage(s: string): boolean {
   return /^data:image\/(jpeg|png|gif|webp);base64,/i.test(s) && s.length <= MAX_FINANCE_DATA_URL;
 }
 
+export function areUsersInSameFinanceHouseholdPlan(
+  workspaceId: string,
+  userA: string,
+  userB: string
+): boolean {
+  if (userA === userB) return true;
+  const pa = financeHouseholdPlans.find(
+    (p) => p.workspaceId === workspaceId && p.memberUserIds.includes(userA)
+  );
+  const pb = financeHouseholdPlans.find(
+    (p) => p.workspaceId === workspaceId && p.memberUserIds.includes(userB)
+  );
+  return Boolean(pa && pb && pa.id === pb.id);
+}
+
+function resolveFinanceRecordLinkedHousehold(
+  userId: string,
+  workspaceId: string,
+  raw: unknown
+): { ok: true; id: string | null } | { ok: false; reason: string } {
+  if (raw === undefined || raw === null || raw === "") return { ok: true, id: null };
+  const id = String(raw).trim();
+  if (!id) return { ok: true, id: null };
+  const plan = financeHouseholdPlans.find(
+    (p) => p.workspaceId === workspaceId && p.memberUserIds.includes(userId)
+  );
+  if (!plan) return { ok: false, reason: "no_household_plan" };
+  if (!plan.households.some((h) => h.id === id)) return { ok: false, reason: "invalid_household" };
+  return { ok: true, id };
+}
+
 export function canViewFinanceRecord(viewerId: string, r: FinanceRecord): boolean {
   if (r.ownerUserId === viewerId) return true;
-  return r.visibilityUserIds.includes(viewerId);
+  if (r.visibilityUserIds.includes(viewerId)) return true;
+  return areUsersInSameFinanceHouseholdPlan(r.workspaceId, viewerId, r.ownerUserId);
 }
 
 export function listFinanceRecords(
   viewerId: string,
   workspaceId: string,
-  filters?: { scope?: FinanceScope; kind?: FinanceKind; ownerUserId?: string }
+  filters?: {
+    scope?: FinanceScope;
+    kind?: FinanceKind;
+    ownerUserId?: string;
+    /** weglassen = alle; "none" = ohne Haushalt; sonst Haushalts-ID */
+    linkedHouseholdId?: string;
+  }
 ): FinanceRecord[] {
   if (!isWorkspaceMember(viewerId, workspaceId)) return [];
   return financeRecords.filter((r) => {
@@ -1978,6 +2020,12 @@ export function listFinanceRecords(
     if (filters?.scope && r.scope !== filters.scope) return false;
     if (filters?.kind && r.kind !== filters.kind) return false;
     if (filters?.ownerUserId && r.ownerUserId !== filters.ownerUserId) return false;
+    if (filters?.linkedHouseholdId !== undefined) {
+      const f = filters.linkedHouseholdId;
+      if (f === "none") {
+        if (r.linkedHouseholdId) return false;
+      } else if (r.linkedHouseholdId !== f) return false;
+    }
     return true;
   });
 }
@@ -2012,10 +2060,17 @@ export function createFinanceRecord(input: {
   imageDataUrl: string;
   extraAttachmentDataUrl: string | null;
   visibilityUserIds: string[];
+  linkedHouseholdId?: unknown;
 }): { ok: true; record: FinanceRecord } | { ok: false; reason: string } {
   if (!isWorkspaceMember(input.ownerUserId, input.workspaceId)) {
     return { ok: false, reason: "not_workspace_member" };
   }
+  const linked = resolveFinanceRecordLinkedHousehold(
+    input.ownerUserId,
+    input.workspaceId,
+    input.linkedHouseholdId
+  );
+  if (!linked.ok) return { ok: false, reason: linked.reason };
   if (!isValidDataUrlImage(input.imageDataUrl)) {
     return { ok: false, reason: "invalid_or_too_large_image" };
   }
@@ -2048,6 +2103,7 @@ export function createFinanceRecord(input: {
     imageDataUrl: input.imageDataUrl,
     extraAttachmentDataUrl: input.extraAttachmentDataUrl,
     visibilityUserIds: vis,
+    linkedHouseholdId: linked.id,
     createdAt: ts,
     updatedAt: ts,
   };
@@ -2074,12 +2130,21 @@ export function updateFinanceRecord(
       | "visibilityUserIds"
       | "imageDataUrl"
       | "extraAttachmentDataUrl"
+      | "linkedHouseholdId"
     >
   >
 ): { ok: true; record: FinanceRecord } | { ok: false; reason: string } {
   const r = financeRecords.find((x) => x.id === id);
   if (!r) return { ok: false, reason: "not_found" };
-  if (r.ownerUserId !== editorId) return { ok: false, reason: "forbidden" };
+  const canEdit =
+    r.ownerUserId === editorId ||
+    areUsersInSameFinanceHouseholdPlan(r.workspaceId, editorId, r.ownerUserId);
+  if (!canEdit) return { ok: false, reason: "forbidden" };
+  if (patch.linkedHouseholdId !== undefined) {
+    const next = resolveFinanceRecordLinkedHousehold(editorId, r.workspaceId, patch.linkedHouseholdId);
+    if (!next.ok) return { ok: false, reason: next.reason };
+    r.linkedHouseholdId = next.id;
+  }
   if (patch.imageDataUrl !== undefined && !isValidDataUrlImage(patch.imageDataUrl)) {
     return { ok: false, reason: "invalid_or_too_large_image" };
   }
@@ -2117,9 +2182,199 @@ export function updateFinanceRecord(
 export function deleteFinanceRecord(id: string, editorId: string): { ok: true } | { ok: false; reason: string } {
   const idx = financeRecords.findIndex((x) => x.id === id);
   if (idx === -1) return { ok: false, reason: "not_found" };
-  if (financeRecords[idx]!.ownerUserId !== editorId) return { ok: false, reason: "forbidden" };
+  const r = financeRecords[idx]!;
+  const canDel =
+    r.ownerUserId === editorId ||
+    areUsersInSameFinanceHouseholdPlan(r.workspaceId, editorId, r.ownerUserId);
+  if (!canDel) return { ok: false, reason: "forbidden" };
   financeRecords.splice(idx, 1);
   return { ok: true };
+}
+
+// --- Haushaltsplan / Fixkosten (gemeinsam nutzbar) ---
+
+export const financeHouseholdPlans: FinanceHouseholdPlan[] = [];
+
+function findFinanceHouseholdPlanForUser(workspaceId: string, userId: string): FinanceHouseholdPlan | undefined {
+  return financeHouseholdPlans.find(
+    (p) => p.workspaceId === workspaceId && p.memberUserIds.includes(userId)
+  );
+}
+
+export function getFinanceHouseholdPlanForViewer(
+  viewerId: string,
+  workspaceId: string
+): FinanceHouseholdPlan | undefined {
+  if (!isWorkspaceMember(viewerId, workspaceId)) return undefined;
+  return findFinanceHouseholdPlanForUser(workspaceId, viewerId);
+}
+
+function parseMietePaidBy(raw: unknown): MietePaidBy {
+  if (raw === "person1" || raw === "person2" || raw === "household") return raw;
+  return "household";
+}
+
+function normalizeCostCents(n: unknown): number {
+  const x = typeof n === "number" ? n : Number(n);
+  if (!Number.isFinite(x) || x < 0) return 0;
+  return Math.min(Math.round(x), 999_999_999);
+}
+
+export function defaultHouseholdCosts(): HouseholdMonthlyFixedCosts {
+  return {
+    mieteCents: 0,
+    mietePaidBy: "household",
+    internetCents: 0,
+    versicherungenCents: 0,
+    autoCents: 0,
+    stromCents: 0,
+    wasserCents: 0,
+    heizungCents: 0,
+    handyCents: 0,
+    streamingCents: 0,
+    krediteCents: 0,
+    lebensmittelCents: 0,
+  };
+}
+
+function parseHouseholdCosts(raw: unknown): HouseholdMonthlyFixedCosts {
+  const base = defaultHouseholdCosts();
+  if (!raw || typeof raw !== "object") return base;
+  const o = raw as Record<string, unknown>;
+  return {
+    mieteCents: normalizeCostCents(o.mieteCents ?? o.miete),
+    mietePaidBy: parseMietePaidBy(o.mietePaidBy),
+    internetCents: normalizeCostCents(o.internetCents ?? o.internet),
+    versicherungenCents: normalizeCostCents(o.versicherungenCents ?? o.versicherungen),
+    autoCents: normalizeCostCents(o.autoCents ?? o.auto),
+    stromCents: normalizeCostCents(o.stromCents ?? o.strom),
+    wasserCents: normalizeCostCents(o.wasserCents ?? o.wasser),
+    heizungCents: normalizeCostCents(o.heizungCents ?? o.heizung),
+    handyCents: normalizeCostCents(o.handyCents ?? o.handy),
+    streamingCents: normalizeCostCents(o.streamingCents ?? o.streaming),
+    krediteCents: normalizeCostCents(o.krediteCents ?? o.kredite),
+    lebensmittelCents: normalizeCostCents(o.lebensmittelCents ?? o.lebensmittel),
+  };
+}
+
+function deleteSoloFinanceHouseholdPlans(workspaceId: string, userIds: string[]) {
+  const set = new Set(userIds);
+  for (let i = financeHouseholdPlans.length - 1; i >= 0; i--) {
+    const p = financeHouseholdPlans[i]!;
+    if (p.workspaceId !== workspaceId) continue;
+    if (p.memberUserIds.length === 1 && set.has(p.memberUserIds[0]!)) {
+      financeHouseholdPlans.splice(i, 1);
+    }
+  }
+}
+
+function assertUsersFreeForNewSharedPlan(
+  workspaceId: string,
+  userIds: string[]
+): { ok: true } | { ok: false; reason: string } {
+  const uniq = [...new Set(userIds)];
+  for (const uid of uniq) {
+    if (!isWorkspaceMember(uid, workspaceId)) return { ok: false, reason: "user_not_in_workspace" };
+    const p = findFinanceHouseholdPlanForUser(workspaceId, uid);
+    if (p && p.memberUserIds.length > 1) {
+      return { ok: false, reason: "user_in_existing_shared_plan" };
+    }
+  }
+  return { ok: true };
+}
+
+export function createFinanceHouseholdPlan(input: {
+  ownerUserId: string;
+  workspaceId: string;
+  shareWithUserIds: string[];
+  households: Array<{ name: string; costs?: unknown }>;
+}): { ok: true; plan: FinanceHouseholdPlan } | { ok: false; reason: string } {
+  const { ownerUserId, workspaceId } = input;
+  if (!isWorkspaceMember(ownerUserId, workspaceId)) {
+    return { ok: false, reason: "not_workspace_member" };
+  }
+  if (findFinanceHouseholdPlanForUser(workspaceId, ownerUserId)) {
+    return { ok: false, reason: "plan_already_exists" };
+  }
+  const share = [...new Set(input.shareWithUserIds.filter((id) => id && id !== ownerUserId))];
+  const memberUserIds = [ownerUserId, ...share];
+  const free = assertUsersFreeForNewSharedPlan(workspaceId, memberUserIds);
+  if (!free.ok) return free;
+  deleteSoloFinanceHouseholdPlans(workspaceId, memberUserIds);
+  if (memberUserIds.some((uid) => findFinanceHouseholdPlanForUser(workspaceId, uid))) {
+    return { ok: false, reason: "user_in_existing_shared_plan" };
+  }
+  const hhInput = input.households;
+  if (!Array.isArray(hhInput) || hhInput.length < 1 || hhInput.length > 12) {
+    return { ok: false, reason: "invalid_household_count" };
+  }
+  const ts = now();
+  const households: FinanceHouseholdEntry[] = hhInput.map((h, idx) => ({
+    id: `hh-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 7)}`,
+    name: (h.name || `Haushalt ${idx + 1}`).trim().slice(0, 80) || `Haushalt ${idx + 1}`,
+    costs: h.costs && typeof h.costs === "object" ? parseHouseholdCosts(h.costs) : defaultHouseholdCosts(),
+  }));
+  const plan: FinanceHouseholdPlan = {
+    id: `fhp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    workspaceId,
+    ownerUserId,
+    memberUserIds,
+    households,
+    createdAt: ts,
+    updatedAt: ts,
+  };
+  financeHouseholdPlans.push(plan);
+  return { ok: true, plan };
+}
+
+export function patchFinanceHouseholdPlan(input: {
+  editorId: string;
+  workspaceId: string;
+  households?: FinanceHouseholdEntry[];
+  memberUserIds?: string[];
+}): { ok: true; plan: FinanceHouseholdPlan } | { ok: false; reason: string } {
+  const { editorId, workspaceId } = input;
+  const plan = findFinanceHouseholdPlanForUser(workspaceId, editorId);
+  if (!plan) return { ok: false, reason: "not_found" };
+  if (!plan.memberUserIds.includes(editorId)) return { ok: false, reason: "forbidden" };
+
+  if (input.households !== undefined) {
+    const list = input.households;
+    if (!Array.isArray(list) || list.length < 1 || list.length > 12) {
+      return { ok: false, reason: "invalid_household_count" };
+    }
+    plan.households = list.map((h, idx) => ({
+      id:
+        typeof h.id === "string" && h.id.startsWith("hh-")
+          ? h.id.slice(0, 48)
+          : `hh-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 7)}`,
+      name: (h.name || `Haushalt ${idx + 1}`).trim().slice(0, 80) || `Haushalt ${idx + 1}`,
+      costs: parseHouseholdCosts(h.costs),
+    }));
+  }
+
+  if (input.memberUserIds !== undefined) {
+    if (plan.ownerUserId !== editorId) return { ok: false, reason: "only_owner_can_change_members" };
+    const next = [...new Set(input.memberUserIds.filter(Boolean))];
+    if (!next.includes(plan.ownerUserId)) return { ok: false, reason: "owner_must_remain_member" };
+    for (const uid of next) {
+      if (!isWorkspaceMember(uid, workspaceId)) return { ok: false, reason: "user_not_in_workspace" };
+    }
+    const added = next.filter((id) => !plan.memberUserIds.includes(id));
+    const free = assertUsersFreeForNewSharedPlan(workspaceId, added);
+    if (!free.ok) return free;
+    deleteSoloFinanceHouseholdPlans(workspaceId, added);
+    if (added.some((uid) => {
+      const ex = findFinanceHouseholdPlanForUser(workspaceId, uid);
+      return ex && ex.id !== plan.id;
+    })) {
+      return { ok: false, reason: "user_in_existing_shared_plan" };
+    }
+    plan.memberUserIds = next;
+  }
+
+  plan.updatedAt = now();
+  return { ok: true, plan };
 }
 
 // --- Verträge (Kategorien + mehrseitige Dokumente) ---
@@ -2168,7 +2423,8 @@ function contractCategoryAllowed(
 
 export function canViewContractBundle(viewerId: string, b: ContractBundle): boolean {
   if (b.ownerUserId === viewerId) return true;
-  return b.visibilityUserIds.includes(viewerId);
+  if (b.visibilityUserIds.includes(viewerId)) return true;
+  return areUsersInSameFinanceHouseholdPlan(b.workspaceId, viewerId, b.ownerUserId);
 }
 
 export function listContractBundles(
@@ -2256,7 +2512,10 @@ export function updateContractBundle(
 ): { ok: true; bundle: ContractBundle } | { ok: false; reason: string } {
   const b = contractBundles.find((x) => x.id === id);
   if (!b) return { ok: false, reason: "not_found" };
-  if (b.ownerUserId !== editorId) return { ok: false, reason: "forbidden" };
+  const canEdit =
+    b.ownerUserId === editorId ||
+    areUsersInSameFinanceHouseholdPlan(b.workspaceId, editorId, b.ownerUserId);
+  if (!canEdit) return { ok: false, reason: "forbidden" };
   if (patch.appendPageDataUrls !== undefined) {
     const add = patch.appendPageDataUrls;
     if (!add.length) return { ok: false, reason: "invalid_pages" };
@@ -2285,7 +2544,11 @@ export function updateContractBundle(
 export function deleteContractBundle(id: string, editorId: string): { ok: true } | { ok: false; reason: string } {
   const idx = contractBundles.findIndex((x) => x.id === id);
   if (idx === -1) return { ok: false, reason: "not_found" };
-  if (contractBundles[idx]!.ownerUserId !== editorId) return { ok: false, reason: "forbidden" };
+  const b = contractBundles[idx]!;
+  const canDel =
+    b.ownerUserId === editorId ||
+    areUsersInSameFinanceHouseholdPlan(b.workspaceId, editorId, b.ownerUserId);
+  if (!canDel) return { ok: false, reason: "forbidden" };
   contractBundles.splice(idx, 1);
   return { ok: true };
 }
@@ -3011,6 +3274,7 @@ export function captureStoreSnapshot() {
     meetings: structuredClone(meetings),
     familyCalendarSlots: structuredClone(familyCalendarSlots),
     financeRecords: structuredClone(financeRecords),
+    financeHouseholdPlans: structuredClone(financeHouseholdPlans),
     contractBundles: structuredClone(contractBundles),
     contractCustomCategories: structuredClone(contractCustomCategories),
     workplaceEmployees: structuredClone(workplaceEmployees),
@@ -3063,6 +3327,10 @@ export function restoreStoreSnapshot(raw: unknown): boolean {
     replaceArray(meetings, s.meetings);
     replaceArray(familyCalendarSlots, s.familyCalendarSlots);
     replaceArray(financeRecords, s.financeRecords);
+    for (const r of financeRecords) {
+      if ((r as FinanceRecord).linkedHouseholdId === undefined) (r as FinanceRecord).linkedHouseholdId = null;
+    }
+    if (Array.isArray(s.financeHouseholdPlans)) replaceArray(financeHouseholdPlans, s.financeHouseholdPlans);
     replaceArray(contractBundles, s.contractBundles);
     replaceArray(contractCustomCategories, s.contractCustomCategories);
     replaceArray(workplaceEmployees, s.workplaceEmployees);

@@ -27,6 +27,7 @@ import {
   createGroupChatRoom,
   createContractBundle,
   createContractCustomCategory,
+  createFinanceHouseholdPlan,
   createFinanceRecord,
   createFriendRequest,
   createEmployeeAbsencePeriod,
@@ -52,6 +53,7 @@ import {
   getOrCreatePrivateChat,
   getRoomIdForAttachment,
   getContractBundle,
+  getFinanceHouseholdPlanForViewer,
   getFinanceRecord,
   getMonthlyWorkPlan,
   getWorkScheduleViewersForEditor,
@@ -69,6 +71,7 @@ import {
   listContractBundles,
   listContractCustomCategories,
   listFinanceRecords,
+  patchFinanceHouseholdPlan,
   listFriendRequests,
   listFriends,
   listFamilyCalendarSlots,
@@ -1036,6 +1039,77 @@ app.post("/rooms/:roomId/messages/:messageId/reactions", requireAuth, (req, res)
   return res.json(toggled.message);
 });
 
+app.get("/finance/household-plan", requireAuth, (req, res) => {
+  const workspaceId = String(req.query.workspaceId ?? "").trim();
+  if (!workspaceId) return res.status(400).json({ error: "workspace_id_required" });
+  if (!isWorkspaceMember(req.authUserId!, workspaceId)) {
+    return res.status(403).json({ error: "forbidden" });
+  }
+  const plan = getFinanceHouseholdPlanForViewer(req.authUserId!, workspaceId);
+  return res.json({ needsSetup: !plan, plan: plan ?? null });
+});
+
+app.post("/finance/household-plan", requireAuth, (req, res) => {
+  const body = req.body as {
+    workspaceId?: string;
+    shareWithUserIds?: string[];
+    households?: Array<{ name?: string; costs?: unknown }>;
+  };
+  const ws = String(body.workspaceId ?? "").trim();
+  if (!ws) return res.status(400).json({ error: "workspace_id_required" });
+  if (!Array.isArray(body.households) || body.households.length < 1) {
+    return res.status(400).json({ error: "households_required" });
+  }
+  const result = createFinanceHouseholdPlan({
+    ownerUserId: req.authUserId!,
+    workspaceId: ws,
+    shareWithUserIds: Array.isArray(body.shareWithUserIds) ? body.shareWithUserIds : [],
+    households: body.households.map((h) => ({
+      name: String(h?.name ?? ""),
+      costs: h?.costs,
+    })),
+  });
+  if (!result.ok) {
+    const code =
+      result.reason === "user_in_existing_shared_plan" || result.reason === "plan_already_exists"
+        ? 409
+        : 400;
+    return res.status(code).json({ error: result.reason });
+  }
+  return res.status(201).json(result.plan);
+});
+
+app.patch("/finance/household-plan", requireAuth, (req, res) => {
+  const body = req.body as {
+    workspaceId?: string;
+    households?: import("./types.js").FinanceHouseholdEntry[];
+    memberUserIds?: string[];
+  };
+  const ws = String(body.workspaceId ?? "").trim();
+  if (!ws) return res.status(400).json({ error: "workspace_id_required" });
+  if (body.households === undefined && body.memberUserIds === undefined) {
+    return res.status(400).json({ error: "nothing_to_patch" });
+  }
+  const result = patchFinanceHouseholdPlan({
+    editorId: req.authUserId!,
+    workspaceId: ws,
+    ...(body.households !== undefined ? { households: body.households } : {}),
+    ...(body.memberUserIds !== undefined ? { memberUserIds: body.memberUserIds } : {}),
+  });
+  if (!result.ok) {
+    const code =
+      result.reason === "forbidden" || result.reason === "only_owner_can_change_members"
+        ? 403
+        : result.reason === "not_found"
+          ? 404
+          : result.reason === "user_in_existing_shared_plan"
+            ? 409
+            : 400;
+    return res.status(code).json({ error: result.reason });
+  }
+  return res.json(result.plan);
+});
+
 app.get("/finance/records", requireAuth, (req, res) => {
   const workspaceId = String(req.query.workspaceId ?? "").trim();
   if (!workspaceId) return res.status(400).json({ error: "workspace_id_required" });
@@ -1045,6 +1119,9 @@ app.get("/finance/records", requireAuth, (req, res) => {
   const scopeRaw = req.query.scope;
   const kindRaw = req.query.kind;
   const ownerUserId = String(req.query.ownerUserId ?? "").trim() || undefined;
+  const linkedHouseholdIdRaw = String(req.query.linkedHouseholdId ?? "").trim();
+  const linkedHouseholdId =
+    linkedHouseholdIdRaw === "" ? undefined : linkedHouseholdIdRaw === "none" ? "none" : linkedHouseholdIdRaw;
   const scope =
     scopeRaw === "personal" || scopeRaw === "family" ? scopeRaw : undefined;
   const kind = kindRaw === "expense" || kindRaw === "income" ? kindRaw : undefined;
@@ -1052,6 +1129,7 @@ app.get("/finance/records", requireAuth, (req, res) => {
     scope,
     kind,
     ownerUserId,
+    linkedHouseholdId,
   });
   return res.json(rows.map(toFinanceSummary));
 });
@@ -1079,6 +1157,7 @@ app.post("/finance/records", requireAuth, (req, res) => {
     imageDataUrl?: string;
     extraAttachmentDataUrl?: string | null;
     visibilityUserIds?: string[];
+    linkedHouseholdId?: string | null;
   };
   if (!body.workspaceId?.trim() || !body.imageDataUrl || !body.title?.trim()) {
     return res.status(400).json({ error: "workspaceId_title_image_required" });
@@ -1099,6 +1178,7 @@ app.post("/finance/records", requireAuth, (req, res) => {
     imageDataUrl: body.imageDataUrl,
     extraAttachmentDataUrl: body.extraAttachmentDataUrl ?? null,
     visibilityUserIds: Array.isArray(body.visibilityUserIds) ? body.visibilityUserIds : [],
+    linkedHouseholdId: body.linkedHouseholdId,
   });
   if (!result.ok) return res.status(400).json({ error: result.reason });
   return res.status(201).json(toFinanceSummary(result.record));
@@ -1119,6 +1199,7 @@ app.patch("/finance/records/:id", requireAuth, (req, res) => {
     visibilityUserIds?: string[];
     imageDataUrl?: string;
     extraAttachmentDataUrl?: string | null;
+    linkedHouseholdId?: string | null;
   };
   const patch: Parameters<typeof updateFinanceRecord>[2] = {};
   if (body.title !== undefined) patch.title = body.title;
@@ -1134,6 +1215,7 @@ app.patch("/finance/records/:id", requireAuth, (req, res) => {
   if (body.visibilityUserIds !== undefined) patch.visibilityUserIds = body.visibilityUserIds;
   if (body.imageDataUrl !== undefined) patch.imageDataUrl = body.imageDataUrl;
   if (body.extraAttachmentDataUrl !== undefined) patch.extraAttachmentDataUrl = body.extraAttachmentDataUrl;
+  if (body.linkedHouseholdId !== undefined) patch.linkedHouseholdId = body.linkedHouseholdId;
   const result = updateFinanceRecord(req.params.id, req.authUserId!, patch);
   if (!result.ok) {
     const code = result.reason === "forbidden" ? 403 : result.reason === "not_found" ? 404 : 400;

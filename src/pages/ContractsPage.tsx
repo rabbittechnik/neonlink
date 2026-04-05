@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CONTRACT_PRESET_BUTTONS } from "@/constants/contractPresets";
 import type { ContractBundleDetail, ContractBundleSummary, ContractCustomCategory } from "@/types/contracts";
+import type { FinanceHouseholdPlan } from "@/types/financeHousehold";
 import {
   downloadDataUrl,
   downloadDataUrlsStaggered,
@@ -64,6 +65,8 @@ export default function ContractsPage() {
   const [zipping, setZipping] = useState(false);
   const [createModalError, setCreateModalError] = useState<string | null>(null);
   const [filePreviewUrls, setFilePreviewUrls] = useState<string[]>([]);
+  const [financeHouseholdPlan, setFinanceHouseholdPlan] = useState<FinanceHouseholdPlan | null>(null);
+  const [financeHouseholdLoading, setFinanceHouseholdLoading] = useState(false);
 
   const fetchJson = useCallback(
     async <T,>(path: string): Promise<T> => {
@@ -135,6 +138,29 @@ export default function ContractsPage() {
       c = true;
     };
   }, [workspaceId, fetchJson]);
+
+  const reloadFinanceHouseholdPlan = useCallback(async () => {
+    if (!workspaceId) {
+      setFinanceHouseholdPlan(null);
+      setFinanceHouseholdLoading(false);
+      return;
+    }
+    setFinanceHouseholdLoading(true);
+    try {
+      const data = await fetchJson<{ needsSetup: boolean; plan: FinanceHouseholdPlan | null }>(
+        `/finance/household-plan?workspaceId=${encodeURIComponent(workspaceId)}`
+      );
+      setFinanceHouseholdPlan(data.plan);
+    } catch {
+      setFinanceHouseholdPlan(null);
+    } finally {
+      setFinanceHouseholdLoading(false);
+    }
+  }, [workspaceId, fetchJson]);
+
+  useEffect(() => {
+    void reloadFinanceHouseholdPlan();
+  }, [reloadFinanceHouseholdPlan]);
 
   useEffect(() => {
     void reloadCustomCats();
@@ -409,6 +435,13 @@ export default function ContractsPage() {
     return { presets: CONTRACT_PRESET_BUTTONS, custom };
   }, [customCats]);
 
+  const financeSharedMemberNames = useMemo(() => {
+    if (!financeHouseholdPlan) return "";
+    return financeHouseholdPlan.memberUserIds
+      .map((id) => members.find((m) => m.userId === id)?.displayName ?? id)
+      .join(", ");
+  }, [financeHouseholdPlan, members]);
+
   const pages = viewer?.pageDataUrls ?? [];
   const safePage = Math.min(pageIndex, Math.max(0, pages.length - 1));
 
@@ -446,6 +479,41 @@ export default function ContractsPage() {
             „Privat“ / „Familie“ und Filter „Dokumente von“ wie bei Finanzen.
           </span>
         </p>
+
+        {!loading && workspaceId && !financeHouseholdLoading && financeHouseholdPlan ? (
+          financeHouseholdPlan.memberUserIds.length > 1 ? (
+            <div className="rounded-2xl border border-violet-400/35 bg-violet-500/[0.12] p-4 mb-6 max-w-3xl">
+              <div className="flex items-start gap-3">
+                <Users className="h-5 w-5 text-violet-200 shrink-0 mt-0.5" aria-hidden />
+                <div className="text-sm text-white/80 leading-relaxed">
+                  <p className="font-medium text-violet-100 mb-1">Gemeinsamer Finanz-Haushaltsplan</p>
+                  <p>
+                    Mit{" "}
+                    <span className="text-white font-medium">{financeSharedMemberNames}</span> sind{" "}
+                    <strong className="text-white/90">Verträge und Finanzen</strong> in diesem Workspace
+                    abgestimmt: Ihr seht dieselben Dokumente und Belege, ohne doppelte Einrichtung.
+                  </p>
+                  <p className="mt-2 text-xs text-white/55">
+                    Mitglieder verwalten oder Fixkosten anpassen:{" "}
+                    <Link to="/finance" className="text-emerald-300 hover:text-emerald-100 underline-offset-2">
+                      Zu Finanzen / Haushalte
+                    </Link>
+                    .
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-white/50 mb-5 max-w-3xl leading-relaxed">
+              Du hast einen{" "}
+              <Link to="/finance" className="text-emerald-300/90 hover:text-emerald-100">
+                Haushaltsplan
+              </Link>{" "}
+              ohne weitere Mitglieder. Sobald du unter Finanzen Personen für den gemeinsamen Plan einlädst,
+              sehen diese automatisch auch deine hier hinterlegten Verträge (wie bei den Finanzbelegen).
+            </p>
+          )
+        ) : null}
 
         {loading ? (
           <div className="flex items-center gap-2 text-cyan-200/80">
