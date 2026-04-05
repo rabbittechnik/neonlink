@@ -1476,7 +1476,9 @@ io.on("connection", (socket) => {
 
 const port = Number(process.env.PORT ?? 4000);
 
-const staticDist = process.env.STATIC_DIST_PATH?.trim();
+const staticDistRaw = process.env.STATIC_DIST_PATH?.trim();
+/** Express sendFile/static brauchen absolute Pfade; ../dist relativ zu cwd (z. B. Railway: /app/server). */
+const staticDist = staticDistRaw ? path.resolve(process.cwd(), staticDistRaw) : undefined;
 if (staticDist && fs.existsSync(staticDist)) {
   const indexHtml = path.join(staticDist, "index.html");
   app.use(express.static(staticDist, { index: false }));
