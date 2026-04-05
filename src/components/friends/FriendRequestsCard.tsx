@@ -10,10 +10,11 @@ type UserLite = { displayName?: string; avatarUrl?: string | null };
 type Props = {
   requests: IncomingFriendRequest[];
   resolveUser: (userId: string) => UserLite | undefined;
-  onRespond: (requestId: string, action: "accept" | "reject") => void;
+  onAccept: (requestId: string) => void;
+  onReject: (requestId: string) => void;
 };
 
-export function FriendRequestsCard({ requests, resolveUser, onRespond }: Props) {
+export function FriendRequestsCard({ requests, resolveUser, onAccept, onReject }: Props) {
   return (
     <Card
       id="neonlink-friend-requests"
@@ -58,17 +59,22 @@ export function FriendRequestsCard({ requests, resolveUser, onRespond }: Props) 
                 </Avatar>
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-semibold text-white truncate">{name}</div>
+                  {req.fromCategoryKeys?.length ? (
+                    <div className="text-[10px] text-cyan-200/90 mt-1">
+                      Zuordnung bei Absender: {req.fromCategoryKeys.join(", ")}
+                    </div>
+                  ) : null}
                   <div className="flex gap-1.5 mt-2">
                     <Button
                       type="button"
-                      onClick={() => onRespond(req.id, "accept")}
+                      onClick={() => onAccept(req.id)}
                       className="h-7 flex-1 rounded-lg border border-emerald-400/40 bg-emerald-500/25 text-emerald-50 hover:bg-emerald-500/35 text-[11px]"
                     >
                       Annehmen
                     </Button>
                     <Button
                       type="button"
-                      onClick={() => onRespond(req.id, "reject")}
+                      onClick={() => onReject(req.id)}
                       className="h-7 flex-1 rounded-lg border border-red-400/35 bg-red-500/20 text-red-100 hover:bg-red-500/30 text-[11px]"
                     >
                       Ablehnen

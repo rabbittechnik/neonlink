@@ -71,6 +71,11 @@ export type MessageAttachment = {
   sizeBytes: number;
 };
 
+export type MessageReaction = {
+  userId: string;
+  emoji: string;
+};
+
 /** Rich-Text-Kalender-Hinweis im Chat „Familienkalender“ (Client hebt Felder farblich hervor). */
 export type CalendarAnnouncementPayload = {
   creatorName: string;
@@ -94,6 +99,8 @@ export type Message = {
   replyPreview?: string;
   replySenderId?: string;
   attachments?: MessageAttachment[];
+  /** Mehrere Nutzer, mehrere Emojis pro Nachricht */
+  reactions?: MessageReaction[];
   calendarAnnouncement?: CalendarAnnouncementPayload;
 };
 

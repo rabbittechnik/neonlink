@@ -184,12 +184,14 @@ export const invites: Array<{
   createdBy: string;
 }> = [];
 
+/** Beim Senden: in welchen eigenen Kategorien der Empfänger erscheinen soll (Mehrfachwahl). */
 export const friendRequests: Array<{
   id: string;
   fromUserId: string;
   toUserId: string;
   status: "pending" | "accepted" | "rejected";
   createdAt: string;
+  fromCategoryKeys?: string[];
 }> = [];
 
 export const friendships: Array<{
@@ -198,20 +200,22 @@ export const friendships: Array<{
   createdAt: string;
 }> = [];
 
+export type FriendGroupAssignmentGroup =
+  | "familie"
+  | "freunde"
+  | "verwandte"
+  | "feuerwehr"
+  | "arbeit"
+  | "ideen"
+  | "schule"
+  | "verein"
+  | "nachbarn"
+  | "sonstiges";
+
 export const friendGroupAssignments: Array<{
   ownerUserId: string;
   friendUserId: string;
-  group:
-    | "familie"
-    | "freunde"
-    | "verwandte"
-    | "feuerwehr"
-    | "arbeit"
-    | "ideen"
-    | "schule"
-    | "verein"
-    | "nachbarn"
-    | "sonstiges";
+  group: FriendGroupAssignmentGroup;
 }> = [];
 
 /** Nur für ownerUserId sichtbar (API filtert). */
@@ -283,8 +287,27 @@ export const rooms: Room[] = [
   },
 ];
 
-/** Metadaten fuer Mock-Downloads (GET /attachments/:id/download) */
-export const attachmentRegistry = new Map<string, { fileName: string; mimeType: string }>();
+/** Anhänge: optional Base64-Inhalt für Inline-Vorschau (Bild/GIF/Audio). */
+export const attachmentRegistry = new Map<
+  string,
+  { fileName: string; mimeType: string; dataBase64?: string }
+>();
+
+/** Kategorien für Freundschafts-Zuordnung (Mehrfachwahl laut Produktanforderung). */
+export const FRIENDSHIP_CATEGORY_KEYS = ["familie", "freunde", "arbeit", "feuerwehr"] as const;
+export type FriendshipCategoryKey = (typeof FRIENDSHIP_CATEGORY_KEYS)[number];
+
+export function normalizeFriendshipCategories(raw: unknown): FriendshipCategoryKey[] | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const set = new Set<FriendshipCategoryKey>();
+  for (const x of raw) {
+    if (typeof x !== "string") continue;
+    if ((FRIENDSHIP_CATEGORY_KEYS as readonly string[]).includes(x)) {
+      set.add(x as FriendshipCategoryKey);
+    }
+  }
+  return set.size > 0 ? [...set] : null;
+}
 
 export const messages: Message[] = [
   {
@@ -952,9 +975,18 @@ export function deleteCalendarEvent(id: string, editorId: string): { ok: true } 
 
 export type CreateMessageInput = {
   replyToId?: string;
-  attachments?: Array<{ fileName: string; mimeType: string; sizeBytes: number }>;
+  attachments?: Array<{
+    fileName: string;
+    mimeType: string;
+    sizeBytes: number;
+    /** Rohe Datei Base64 — Server speichert für GET /attachments/:id/view */
+    dataBase64?: string;
+  }>;
   calendarAnnouncement?: CalendarAnnouncementPayload;
 };
+
+/** Max. dekodierte Größe pro Anhang (Chat-Bilder, GIF, Sprache). */
+export const MAX_CHAT_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 
 export function createMessage(
   roomId: string,
@@ -981,7 +1013,14 @@ export function createMessage(
           mimeType: a.mimeType,
           sizeBytes: a.sizeBytes,
         };
-        attachmentRegistry.set(att.id, { fileName: att.fileName, mimeType: att.mimeType });
+        const reg: { fileName: string; mimeType: string; dataBase64?: string } = {
+          fileName: att.fileName,
+          mimeType: att.mimeType,
+        };
+        if (a.dataBase64 && typeof a.dataBase64 === "string" && a.dataBase64.length > 0) {
+          reg.dataBase64 = a.dataBase64;
+        }
+        attachmentRegistry.set(att.id, reg);
         return att;
       })
     : undefined;
@@ -996,6 +1035,7 @@ export function createMessage(
     replyPreview,
     replySenderId,
     attachments,
+    reactions: [],
     calendarAnnouncement: extra?.calendarAnnouncement,
   };
   messages.push(message);
@@ -1744,7 +1784,11 @@ export function searchUsers(requesterUserId: string, query: string) {
     }));
 }
 
-export function createFriendRequest(fromUserId: string, toUserId: string) {
+export function createFriendRequest(
+  fromUserId: string,
+  toUserId: string,
+  fromCategoryKeys?: FriendshipCategoryKey[] | null
+) {
   if (fromUserId === toUserId) return { ok: false as const, reason: "cannot_add_self" };
   const existingFriendship = friendships.some(
     (entry) =>
@@ -1761,12 +1805,14 @@ export function createFriendRequest(fromUserId: string, toUserId: string) {
   );
   if (existingPending) return { ok: false as const, reason: "request_pending" };
 
+  const cats = normalizeFriendshipCategories(fromCategoryKeys) ?? ["freunde"];
   const request = {
     id: `fr-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
     fromUserId,
     toUserId,
     status: "pending" as const,
     createdAt: now(),
+    fromCategoryKeys: cats,
   };
   friendRequests.push(request);
   return { ok: true as const, request };
@@ -1785,7 +1831,12 @@ export function listFriendRequests(userId: string, type: "incoming" | "outgoing"
     }));
 }
 
-export function respondToFriendRequest(requestId: string, userId: string, action: "accept" | "reject") {
+export function respondToFriendRequest(
+  requestId: string,
+  userId: string,
+  action: "accept" | "reject",
+  opts?: { toCategoryKeys?: FriendshipCategoryKey[] | null }
+) {
   const request = friendRequests.find((entry) => entry.id === requestId);
   if (!request) return { ok: false as const, reason: "request_not_found" };
   if (request.toUserId !== userId) return { ok: false as const, reason: "not_allowed" };
@@ -1794,11 +1845,33 @@ export function respondToFriendRequest(requestId: string, userId: string, action
   request.status = action === "accept" ? "accepted" : "rejected";
   if (action === "accept") {
     friendships.push({ userAId: request.fromUserId, userBId: request.toUserId, createdAt: now() });
-    friendGroupAssignments.push({ ownerUserId: request.fromUserId, friendUserId: request.toUserId, group: "freunde" });
-    friendGroupAssignments.push({ ownerUserId: request.toUserId, friendUserId: request.fromUserId, group: "freunde" });
+    const fromCats =
+      normalizeFriendshipCategories(request.fromCategoryKeys) ?? (["freunde"] as FriendshipCategoryKey[]);
+    const toCats = normalizeFriendshipCategories(opts?.toCategoryKeys) ?? (["freunde"] as FriendshipCategoryKey[]);
+    applyFriendGroupRows(request.fromUserId, request.toUserId, fromCats);
+    applyFriendGroupRows(request.toUserId, request.fromUserId, toCats);
     ensureMutualWorkspaceMembership(request.fromUserId, request.toUserId);
   }
   return { ok: true as const, request };
+}
+
+function applyFriendGroupRows(
+  ownerUserId: string,
+  friendUserId: string,
+  groups: FriendGroupAssignmentGroup[]
+): void {
+  const g = [...new Set(groups)];
+  const kept = friendGroupAssignments.filter(
+    (e) => !(e.ownerUserId === ownerUserId && e.friendUserId === friendUserId)
+  );
+  friendGroupAssignments.length = 0;
+  friendGroupAssignments.push(...kept);
+  for (const group of g) {
+    friendGroupAssignments.push({ ownerUserId, friendUserId, group });
+  }
+  if (g.includes("familie")) {
+    ensureMutualWorkspaceMembership(ownerUserId, friendUserId);
+  }
 }
 
 export function listFriends(userId: string) {
@@ -1810,15 +1883,24 @@ export function listFriends(userId: string) {
     })
     .filter((id): id is string => Boolean(id));
 
+  const groupsByFriend = new Map<string, FriendGroupAssignmentGroup[]>();
+  for (const entry of friendGroupAssignments) {
+    if (entry.ownerUserId !== userId) continue;
+    const arr = groupsByFriend.get(entry.friendUserId) ?? [];
+    if (!arr.includes(entry.group)) arr.push(entry.group);
+    groupsByFriend.set(entry.friendUserId, arr);
+  }
+
   return users
     .filter((user) => friendIds.includes(user.id))
-    .map((user) => ({
-      ...formatUserForPeerView(userId, user),
-      group:
-        friendGroupAssignments.find(
-          (entry) => entry.ownerUserId === userId && entry.friendUserId === user.id
-        )?.group ?? "freunde",
-    }));
+    .map((user) => {
+      const groups = groupsByFriend.get(user.id) ?? ["freunde"];
+      return {
+        ...formatUserForPeerView(userId, user),
+        groups,
+        group: groups[0] ?? "freunde",
+      };
+    });
 }
 
 export function isFriend(userAId: string, userBId: string) {
@@ -1827,6 +1909,18 @@ export function isFriend(userAId: string, userBId: string) {
       (entry.userAId === userAId && entry.userBId === userBId) ||
       (entry.userAId === userBId && entry.userBId === userAId)
   );
+}
+
+export function setFriendGroups(
+  ownerUserId: string,
+  friendUserId: string,
+  groups: FriendGroupAssignmentGroup[]
+): { ok: true } | { ok: false; reason: string } {
+  if (!isFriend(ownerUserId, friendUserId)) return { ok: false as const, reason: "not_friends" };
+  const unique = [...new Set(groups)];
+  if (unique.length === 0) return { ok: false as const, reason: "groups_required" };
+  applyFriendGroupRows(ownerUserId, friendUserId, unique);
+  return { ok: true as const };
 }
 
 export function setFriendGroup(
@@ -1844,19 +1938,7 @@ export function setFriendGroup(
     | "nachbarn"
     | "sonstiges"
 ) {
-  if (!isFriend(ownerUserId, friendUserId)) return { ok: false as const, reason: "not_friends" };
-  const existing = friendGroupAssignments.find(
-    (entry) => entry.ownerUserId === ownerUserId && entry.friendUserId === friendUserId
-  );
-  if (existing) {
-    existing.group = group;
-  } else {
-    friendGroupAssignments.push({ ownerUserId, friendUserId, group });
-  }
-  if (group === "familie") {
-    ensureMutualWorkspaceMembership(ownerUserId, friendUserId);
-  }
-  return { ok: true as const };
+  return setFriendGroups(ownerUserId, friendUserId, [group]);
 }
 
 // --- Finanzen (Rechnungen / Einnahmen, pro Workspace, mit Sichtbarkeit) ---
@@ -2886,6 +2968,27 @@ function replaceArray<T>(target: T[], next: unknown): void {
   target.push(...(next as T[]));
 }
 
+export function getRoomIdForAttachment(attachmentId: string): string | null {
+  for (const m of messages) {
+    if (m.attachments?.some((a) => a.id === attachmentId)) return m.roomId;
+  }
+  return null;
+}
+
+export function toggleMessageReaction(
+  messageId: string,
+  userId: string,
+  emoji: string
+): { ok: true; message: Message } | { ok: false; reason: string } {
+  const msg = messages.find((m) => m.id === messageId);
+  if (!msg) return { ok: false, reason: "not_found" };
+  if (!msg.reactions) msg.reactions = [];
+  const idx = msg.reactions.findIndex((r) => r.userId === userId && r.emoji === emoji);
+  if (idx >= 0) msg.reactions.splice(idx, 1);
+  else msg.reactions.push({ userId, emoji });
+  return { ok: true, message: msg };
+}
+
 /** Vollständiger App-Zustand für SQLite-Snapshot (ohne Auth-Maps). */
 export function captureStoreSnapshot() {
   return {
@@ -2900,7 +3003,7 @@ export function captureStoreSnapshot() {
     rooms: structuredClone(rooms),
     attachmentRegistry: [...attachmentRegistry.entries()] as [
       string,
-      { fileName: string; mimeType: string },
+      { fileName: string; mimeType: string; dataBase64?: string },
     ][],
     messages: structuredClone(messages),
     calendarEvents: structuredClone(calendarEvents),
@@ -2946,9 +3049,13 @@ export function restoreStoreSnapshot(raw: unknown): boolean {
       if (!Array.isArray(row) || row.length !== 2) continue;
       const [k, v] = row as [unknown, unknown];
       if (typeof k !== "string" || !v || typeof v !== "object") continue;
-      const meta = v as { fileName?: unknown; mimeType?: unknown };
+      const meta = v as { fileName?: unknown; mimeType?: unknown; dataBase64?: unknown };
       if (typeof meta.fileName !== "string" || typeof meta.mimeType !== "string") continue;
-      attachmentRegistry.set(k, { fileName: meta.fileName, mimeType: meta.mimeType });
+      attachmentRegistry.set(k, {
+        fileName: meta.fileName,
+        mimeType: meta.mimeType,
+        ...(typeof meta.dataBase64 === "string" ? { dataBase64: meta.dataBase64 } : {}),
+      });
     }
     replaceArray(messages, s.messages);
     replaceArray(calendarEvents, s.calendarEvents);

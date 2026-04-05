@@ -2,6 +2,7 @@ import cors from "cors";
 import express from "express";
 import fs from "node:fs";
 import { createServer } from "node:http";
+import { Buffer } from "node:buffer";
 import path from "node:path";
 import { Server } from "socket.io";
 import {
@@ -49,6 +50,7 @@ import {
   findUserByEmail,
   formatUserForPeerView,
   getOrCreatePrivateChat,
+  getRoomIdForAttachment,
   getContractBundle,
   getFinanceRecord,
   getMonthlyWorkPlan,
@@ -86,16 +88,20 @@ import {
   listWorkplaceEmployees,
   listWorkspacesForUser,
   lookupUserPublicByPhone,
+  MAX_CHAT_ATTACHMENT_BYTES,
   messages,
+  normalizeFriendshipCategories,
   registerUserWithPassword,
   replaceFamilyCalendarSlots,
   respondToFriendRequest,
   setChatMessageBroadcaster,
+  setFriendGroups,
   setUserAvatarDataUrl,
   setUserPassword,
   setUserPhoneDigits,
   searchUsers,
   setFriendGroup,
+  toggleMessageReaction,
   setWorkScheduleViewers,
   toContractSummary,
   toFinanceSummary,
@@ -627,11 +633,19 @@ app.get("/friends/requests/:userId", requireAuth, (req, res) => {
 });
 
 app.post("/friends/requests", requireAuth, (req, res) => {
-  const { fromUserId, toUserId } = req.body as { fromUserId?: string; toUserId?: string };
+  const { fromUserId, toUserId, fromCategoryKeys } = req.body as {
+    fromUserId?: string;
+    toUserId?: string;
+    fromCategoryKeys?: unknown;
+  };
   if (!fromUserId || !toUserId || fromUserId !== req.authUserId) {
     return res.status(403).json({ error: "forbidden" });
   }
-  const result = createFriendRequest(fromUserId, toUserId);
+  const result = createFriendRequest(
+    fromUserId,
+    toUserId,
+    normalizeFriendshipCategories(fromCategoryKeys) ?? null
+  );
   if (!result.ok) return res.status(400).json({ error: result.reason });
   const fromUser = users.find((u) => u.id === result.request.fromUserId);
   socketIo?.to(`user:${toUserId}`).emit("friends:incomingRequest", {
@@ -642,11 +656,22 @@ app.post("/friends/requests", requireAuth, (req, res) => {
 });
 
 app.post("/friends/requests/:requestId/respond", requireAuth, (req, res) => {
-  const { userId, action } = req.body as { userId?: string; action?: "accept" | "reject" };
+  const { userId, action, toCategoryKeys } = req.body as {
+    userId?: string;
+    action?: "accept" | "reject";
+    toCategoryKeys?: unknown;
+  };
   if (!userId || userId !== req.authUserId || (action !== "accept" && action !== "reject")) {
     return res.status(400).json({ error: "invalid_request" });
   }
-  const result = respondToFriendRequest(req.params.requestId, userId, action);
+  const result = respondToFriendRequest(
+    req.params.requestId,
+    userId,
+    action,
+    action === "accept"
+      ? { toCategoryKeys: normalizeFriendshipCategories(toCategoryKeys) ?? null }
+      : undefined
+  );
   if (!result.ok) return res.status(400).json({ error: result.reason });
   const r = result.request;
   socketIo?.to(`user:${r.fromUserId}`).emit("friends:changed");
@@ -674,6 +699,25 @@ app.post("/friends/group", requireAuth, (req, res) => {
     return res.status(403).json({ error: "forbidden" });
   }
   const result = setFriendGroup(ownerUserId, friendUserId, group);
+  if (!result.ok) return res.status(400).json({ error: result.reason });
+  return res.status(200).json({ ok: true });
+});
+
+app.post("/friends/groups", requireAuth, (req, res) => {
+  const { ownerUserId, friendUserId, groups } = req.body as {
+    ownerUserId?: string;
+    friendUserId?: string;
+    groups?: unknown;
+  };
+  if (!ownerUserId || !friendUserId || ownerUserId !== req.authUserId) {
+    return res.status(403).json({ error: "forbidden" });
+  }
+  if (!Array.isArray(groups) || groups.length === 0) {
+    return res.status(400).json({ error: "groups_required" });
+  }
+  const g = groups.filter((x): x is string => typeof x === "string" && x.length > 0);
+  if (g.length === 0) return res.status(400).json({ error: "groups_required" });
+  const result = setFriendGroups(ownerUserId, friendUserId, g as Parameters<typeof setFriendGroups>[2]);
   if (!result.ok) return res.status(400).json({ error: result.reason });
   return res.status(200).json({ ok: true });
 });
@@ -930,7 +974,12 @@ app.post("/rooms/:id/messages", requireAuth, (req, res) => {
     senderUserId?: string;
     body?: string;
     replyToId?: string;
-    attachments?: Array<{ fileName: string; mimeType: string; sizeBytes: number }>;
+    attachments?: Array<{
+      fileName: string;
+      mimeType: string;
+      sizeBytes: number;
+      dataBase64?: string;
+    }>;
   };
   if (!body.senderUserId || body.senderUserId !== req.authUserId) {
     return res.status(403).json({ error: "forbidden" });
@@ -947,12 +996,44 @@ app.post("/rooms/:id/messages", requireAuth, (req, res) => {
     return res.status(403).json({ error: "forbidden" });
   }
 
+  if (body.attachments?.length) {
+    for (const a of body.attachments) {
+      if (a.dataBase64) {
+        try {
+          const buf = Buffer.from(a.dataBase64, "base64");
+          if (buf.length > MAX_CHAT_ATTACHMENT_BYTES) {
+            return res.status(400).json({ error: "attachment_too_large" });
+          }
+        } catch {
+          return res.status(400).json({ error: "invalid_attachment_encoding" });
+        }
+      }
+    }
+  }
+
   const message = createMessage(req.params.id, body.senderUserId, text || "(Anhang)", {
     replyToId: body.replyToId,
     attachments: body.attachments,
   });
   io.to(`room:${req.params.id}`).emit("chat:messageCreated", message);
   return res.status(201).json(message);
+});
+
+app.post("/rooms/:roomId/messages/:messageId/reactions", requireAuth, (req, res) => {
+  const { emoji } = req.body as { emoji?: string };
+  if (!emoji || typeof emoji !== "string" || emoji.length > 20) {
+    return res.status(400).json({ error: "invalid_emoji" });
+  }
+  const msg = messages.find((m) => m.id === req.params.messageId && m.roomId === req.params.roomId);
+  if (!msg) return res.status(404).json({ error: "not_found" });
+  const rroom = findRoomById(msg.roomId);
+  if (!rroom || !canUserAccessRoom(req.authUserId!, rroom)) {
+    return res.status(403).json({ error: "forbidden" });
+  }
+  const toggled = toggleMessageReaction(msg.id, req.authUserId!, emoji);
+  if (!toggled.ok) return res.status(404).json({ error: toggled.reason });
+  io.to(`room:${msg.roomId}`).emit("chat:messageUpdated", toggled.message);
+  return res.json(toggled.message);
 });
 
 app.get("/finance/records", requireAuth, (req, res) => {
@@ -1440,12 +1521,48 @@ app.delete("/contracts/bundles/:id", requireAuth, (req, res) => {
   return res.json({ ok: true });
 });
 
-app.get("/attachments/:id/download", requireAuth, (req, res) => {
-  const meta = attachmentRegistry.get(req.params.id);
+app.get("/attachments/:id/view", requireAuth, (req, res) => {
+  const attId = req.params.id;
+  const roomId = getRoomIdForAttachment(attId);
+  if (!roomId) return res.status(404).json({ error: "attachment not found" });
+  const room = findRoomById(roomId);
+  if (!room || !canUserAccessRoom(req.authUserId!, room)) {
+    return res.status(403).json({ error: "forbidden" });
+  }
+  const meta = attachmentRegistry.get(attId);
   if (!meta) return res.status(404).json({ error: "attachment not found" });
   const safeName = meta.fileName.replace(/[^\w.\-]+/g, "_");
   res.setHeader("Content-Type", meta.mimeType || "application/octet-stream");
+  res.setHeader("Content-Disposition", `inline; filename="${safeName}"`);
+  if (meta.dataBase64) {
+    res.send(Buffer.from(meta.dataBase64, "base64"));
+    return;
+  }
+  res.send(
+    Buffer.from(
+      `NeonLink — kein Medienspeicher für diesen Anhang.\nDatei: ${meta.fileName}\n`,
+      "utf8"
+    )
+  );
+});
+
+app.get("/attachments/:id/download", requireAuth, (req, res) => {
+  const meta = attachmentRegistry.get(req.params.id);
+  if (!meta) return res.status(404).json({ error: "attachment not found" });
+  const roomId = getRoomIdForAttachment(req.params.id);
+  if (roomId) {
+    const room = findRoomById(roomId);
+    if (!room || !canUserAccessRoom(req.authUserId!, room)) {
+      return res.status(403).json({ error: "forbidden" });
+    }
+  }
+  const safeName = meta.fileName.replace(/[^\w.\-]+/g, "_");
+  res.setHeader("Content-Type", meta.mimeType || "application/octet-stream");
   res.setHeader("Content-Disposition", `attachment; filename="${safeName}"`);
+  if (meta.dataBase64) {
+    res.send(Buffer.from(meta.dataBase64, "base64"));
+    return;
+  }
   res.send(
     `NeonLink Mock-Download\nDatei: ${meta.fileName}\nMIME: ${meta.mimeType}\n(In Produktion wäre hier der echte Inhalt.)\n`
   );
@@ -1492,7 +1609,12 @@ io.on("connection", (socket) => {
       senderUserId: string;
       body: string;
       replyToId?: string;
-      attachments?: Array<{ fileName: string; mimeType: string; sizeBytes: number }>;
+      attachments?: Array<{
+        fileName: string;
+        mimeType: string;
+        sizeBytes: number;
+        dataBase64?: string;
+      }>;
     }) => {
       const { roomId, senderUserId, body } = payload;
       if (senderUserId !== socketUserId) return;
@@ -1502,6 +1624,19 @@ io.on("connection", (socket) => {
 
       const room = findRoomById(roomId);
       if (!room || !canUserAccessRoom(socketUserId, room)) return;
+
+      if (payload.attachments?.length) {
+        for (const a of payload.attachments) {
+          if (a.dataBase64) {
+            try {
+              const buf = Buffer.from(a.dataBase64, "base64");
+              if (buf.length > MAX_CHAT_ATTACHMENT_BYTES) return;
+            } catch {
+              return;
+            }
+          }
+        }
+      }
 
       const message = createMessage(roomId, senderUserId, text || "(Anhang)", {
         replyToId: payload.replyToId,

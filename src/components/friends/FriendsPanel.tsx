@@ -34,10 +34,11 @@ export type FriendsPanelProps = {
   onSendFriendRequest: (userId: string) => void;
   incomingFriendRequests: IncomingFriendRequest[];
   resolveRequestUser: (userId: string) => { displayName?: string; avatarUrl?: string | null } | undefined;
-  onRespondRequest: (requestId: string, action: "accept" | "reject") => void;
+  onAcceptFriendRequest: (requestId: string) => void;
+  onRejectFriendRequest: (requestId: string) => void;
   friends: FriendListEntry[];
   friendGroupOptions: FriendGroupOption[];
-  onSetFriendGroup: (friendId: string, group: FriendGroup) => void;
+  onSetFriendGroups: (friendId: string, groups: FriendGroup[]) => void;
   onAddFriendByCode: (code: string) => Promise<void>;
   onOpenFriendProfile: (friendId: string) => void;
   onOpenPrivateChat: (friendId: string) => Promise<void>;
@@ -63,10 +64,11 @@ export function FriendsPanel({
   onSendFriendRequest,
   incomingFriendRequests,
   resolveRequestUser,
-  onRespondRequest,
+  onAcceptFriendRequest,
+  onRejectFriendRequest,
   friends,
   friendGroupOptions,
-  onSetFriendGroup,
+  onSetFriendGroups,
   onAddFriendByCode,
   onOpenFriendProfile,
   onOpenPrivateChat,
@@ -162,13 +164,18 @@ export function FriendsPanel({
 
       <JoinByCodeCard highlight={joinPulse} onAddFriendByCode={onAddFriendByCode} />
 
-      <FriendRequestsCard requests={incomingFriendRequests} resolveUser={resolveRequestUser} onRespond={onRespondRequest} />
+      <FriendRequestsCard
+        requests={incomingFriendRequests}
+        resolveUser={resolveRequestUser}
+        onAccept={onAcceptFriendRequest}
+        onReject={onRejectFriendRequest}
+      />
 
       <FriendsList
         friends={friends}
         activeSection={activeSection}
         groupOptions={friendGroupOptions}
-        onSetFriendGroup={onSetFriendGroup}
+        onSetFriendGroups={onSetFriendGroups}
         onOpenFriendProfile={onOpenFriendProfile}
         onOpenPrivateChat={handleOpenChat}
         chatBusyId={chatBusyId}

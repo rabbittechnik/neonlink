@@ -3,7 +3,10 @@ import { MessageCircle } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { resolvePresenceForSection, type PresenceKind } from "@/utils/resolveUserPresence";
-import type { FriendGroupOption, FriendListEntry, SectionId } from "./types";
+import { FRIENDSHIP_FLOW_KEYS } from "./FriendCategoryModal";
+import type { FriendGroup, FriendGroupOption, FriendListEntry, SectionId } from "./types";
+
+const FLOW_SET = new Set<string>(FRIENDSHIP_FLOW_KEYS);
 
 const STATUS_PILL: Record<
   PresenceKind,
@@ -46,7 +49,7 @@ type Props = {
   friends: FriendListEntry[];
   activeSection: SectionId;
   groupOptions: FriendGroupOption[];
-  onSetFriendGroup: (friendId: string, group: FriendListEntry["group"]) => void;
+  onSetFriendGroups: (friendId: string, groups: FriendGroup[]) => void;
   onOpenFriendProfile: (friendId: string) => void;
   onOpenPrivateChat: (friendId: string) => void;
   chatBusyId: string | null;
@@ -56,7 +59,7 @@ export function FriendsList({
   friends,
   activeSection,
   groupOptions,
-  onSetFriendGroup,
+  onSetFriendGroups,
   onOpenFriendProfile,
   onOpenPrivateChat,
   chatBusyId,
@@ -83,7 +86,20 @@ export function FriendsList({
               friend.statusBySection as Record<string, string> | undefined,
               activeSection
             );
-            const opt = groupOptions.find((g) => g.value === friend.group);
+            const effective: FriendGroup[] =
+              friend.groups && friend.groups.length > 0 ? friend.groups : [friend.group];
+            const legacy = effective.filter((g) => !FLOW_SET.has(g));
+            const flowSelected = FRIENDSHIP_FLOW_KEYS.filter((k) => effective.includes(k));
+            const primaryGroup = effective[0] ?? friend.group;
+            const opt = groupOptions.find((g) => g.value === primaryGroup);
+            const toggleFlow = (key: (typeof FRIENDSHIP_FLOW_KEYS)[number]) => {
+              const nextFlow = new Set(flowSelected);
+              if (nextFlow.has(key)) nextFlow.delete(key);
+              else nextFlow.add(key);
+              if (nextFlow.size === 0) nextFlow.add("freunde");
+              const merged: FriendGroup[] = [...legacy, ...(Array.from(nextFlow) as FriendGroup[])];
+              onSetFriendGroups(friend.id, merged);
+            };
             return (
               <div
                 key={friend.id}
@@ -127,7 +143,8 @@ export function FriendsList({
                       <div className="flex flex-wrap items-center gap-1.5 mt-1">
                         <StatusDot presence={presence} />
                         <span className="text-[10px] font-medium text-white/90" title={opt?.label}>
-                          {opt?.emoji} {opt?.label ?? friend.group}
+                          {opt?.emoji} {opt?.label ?? primaryGroup}
+                          {effective.length > 1 ? ` +${effective.length - 1}` : ""}
                         </span>
                       </div>
                     </div>
@@ -142,19 +159,37 @@ export function FriendsList({
                     <MessageCircle className="h-5 w-5" />
                   </button>
                 </div>
-                <select
-                  className="w-full max-w-full rounded-lg bg-white/5 border border-white/10 text-[11px] font-medium py-1 px-2 text-white"
-                  value={friend.group}
-                  onChange={(e) => {
-                    onSetFriendGroup(friend.id, e.target.value as FriendListEntry["group"]);
-                  }}
-                >
-                  {groupOptions.map((g) => (
-                    <option key={g.value} value={g.value} className="bg-[#121c31] text-white">
-                      {g.emoji} {g.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="rounded-lg border border-white/10 bg-white/[0.04] p-2 space-y-1.5">
+                  <div className="text-[9px] uppercase tracking-wider text-white/80 font-semibold">
+                    Kategorien (Mehrfach)
+                  </div>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
+                    {FRIENDSHIP_FLOW_KEYS.map((key) => {
+                      const o = groupOptions.find((g) => g.value === key);
+                      return (
+                        <label
+                          key={key}
+                          className="inline-flex items-center gap-1.5 text-[10px] text-white cursor-pointer select-none"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={flowSelected.includes(key)}
+                            onChange={() => toggleFlow(key)}
+                            className="rounded border-white/30 w-3.5 h-3.5 accent-cyan-500"
+                          />
+                          <span>
+                            {o?.emoji} {o?.label ?? key}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {legacy.length > 0 ? (
+                    <p className="text-[9px] text-white/55 leading-snug">
+                      Weitere Gruppen: {legacy.map((g) => groupOptions.find((o) => o.value === g)?.label ?? g).join(", ")}
+                    </p>
+                  ) : null}
+                </div>
               </div>
             );
           })

@@ -18,7 +18,10 @@ export type FriendListEntry = {
   status: string;
   friendCode?: string;
   avatarUrl?: string | null;
+  /** @deprecated nutze groups — ein Eintrag für Abwärtskompatibilität */
   group: FriendGroup;
+  /** Mehrfach-Kategorien (Server) */
+  groups?: FriendGroup[];
   statusBySection?: Record<string, string>;
 };
 
@@ -30,6 +33,7 @@ export type IncomingFriendRequest = {
   toUserId: string;
   status: "pending";
   fromDisplayName?: string;
+  fromCategoryKeys?: string[];
 };
 
 export type FriendGroupOption = { value: FriendGroup; label: string; emoji: string };

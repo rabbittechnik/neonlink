@@ -32,6 +32,11 @@ export type ChatAttachment = {
   sizeBytes: number;
 };
 
+export type ChatMessageReaction = {
+  userId: string;
+  emoji: string;
+};
+
 export type ChatReplyRef = {
   messageId: string;
   from: string;
@@ -61,6 +66,7 @@ export type ChatMessage = {
   avatarUrl?: string | null;
   replyTo?: ChatReplyRef;
   attachments?: ChatAttachment[];
+  reactions?: ChatMessageReaction[];
   /** Server-Zeitstempel fuer Sortierung nach Aktivitaet */
   createdAtMs?: number;
   calendarAnnouncement?: ChatCalendarAnnouncement;

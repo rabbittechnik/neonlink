@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ApiMeeting, ApiMeetingRoom } from "@/types/meetings";
 import type { SectionId } from "@/types/collab";
 import { CreateMeetingModal } from "./CreateMeetingModal";
+import { VideoMeetingModal } from "./VideoMeetingModal";
 
 type Member = { id: string; displayName: string };
 
@@ -33,6 +34,8 @@ type Props = {
   onCreateRoom: (name: string) => Promise<void>;
   onRenameRoom: (roomId: string, name: string) => Promise<void>;
   onDeleteRoom: (roomId: string) => Promise<void>;
+  /** Anzeigename für Jitsi / UI */
+  currentUserDisplayName: string;
 };
 
 function formatRange(startsAt: string, endsAt: string) {
@@ -46,6 +49,7 @@ function formatRange(startsAt: string, endsAt: string) {
 }
 
 export function MeetingsWorkspacePanel({
+  workspaceId,
   rooms,
   activeRoomId,
   onSelectRoom,
@@ -61,9 +65,12 @@ export function MeetingsWorkspacePanel({
   onCreateRoom,
   onRenameRoom,
   onDeleteRoom,
+  currentUserDisplayName,
 }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [videoOpen, setVideoOpen] = useState(false);
+  const [jitsiMeeting, setJitsiMeeting] = useState<ApiMeeting | null>(null);
   const [newRoomOpen, setNewRoomOpen] = useState(false);
   const [newRoomName, setNewRoomName] = useState("Neuer Raum");
   const [roomBusy, setRoomBusy] = useState(false);
@@ -366,8 +373,23 @@ export function MeetingsWorkspacePanel({
             </div>
             <Button
               type="button"
+              className="mt-3 w-full rounded-xl bg-cyan-500/25 border border-cyan-400/40 text-cyan-50 hover:bg-cyan-500/35 gap-2"
+              onClick={() => {
+                setJitsiMeeting(detail);
+                setVideoOpen(true);
+              }}
+            >
+              <Video className="h-4 w-4 shrink-0" />
+              Video-Meeting starten (Jitsi)
+            </Button>
+            <p className="text-[10px] text-white/60 mt-2 leading-snug">
+              Echter Video-/Audio-Call im Browser. Raum: gemeinsam für alle mit diesem Link sichtbar. Als{" "}
+              <span className="text-cyan-200/90">{currentUserDisplayName}</span> in Jitsi anmelden.
+            </p>
+            <Button
+              type="button"
               variant="ghost"
-              className="mt-4 w-full rounded-xl text-white"
+              className="mt-3 w-full rounded-xl text-white"
               onClick={() => setDetailId(null)}
             >
               Schliessen
@@ -375,6 +397,16 @@ export function MeetingsWorkspacePanel({
           </div>
         </div>
       ) : null}
+
+      <VideoMeetingModal
+        open={videoOpen && Boolean(jitsiMeeting)}
+        onClose={() => {
+          setVideoOpen(false);
+          setJitsiMeeting(null);
+        }}
+        roomName={`NeonLink-${workspaceId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12)}-${(jitsiMeeting?.id ?? "meet").replace(/[^a-zA-Z0-9]/g, "").slice(0, 24)}`}
+        title={jitsiMeeting ? `Video: ${jitsiMeeting.title}` : "Video-Meeting"}
+      />
 
       <CreateMeetingModal
         open={modalOpen}
