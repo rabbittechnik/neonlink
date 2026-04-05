@@ -513,11 +513,78 @@ export function getCalendarEvent(id: string): CalendarEvent | undefined {
   return calendarEvents.find((x) => x.id === id);
 }
 
-export function listFamilyCalendarSlots(ownerUserId: string, workspaceId: string): FamilyCalendarSlot[] {
-  if (!isWorkspaceMember(ownerUserId, workspaceId)) return [];
+export function listFamilyCalendarSlots(viewerUserId: string, workspaceId: string): FamilyCalendarSlot[] {
+  if (!isWorkspaceMember(viewerUserId, workspaceId)) return [];
   return familyCalendarSlots
-    .filter((s) => s.ownerUserId === ownerUserId && s.workspaceId === workspaceId)
+    .filter((s) => s.workspaceId === workspaceId)
     .sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+/** Checks whether a workspace has a "familie" section (all personal workspaces do). */
+function workspaceHasFamilieSection(workspaceId: string): boolean {
+  return rooms.some((r) => r.workspaceId === workspaceId && r.sectionId === "familie");
+}
+
+/**
+ * Ensures every workspace member has a named calendar slot and that the shared
+ * "Gemeinsam" slot exists.  Safe to call multiple times — idempotent.
+ */
+export function ensureFamilyCalendarSlotsForWorkspace(
+  workspaceId: string,
+  triggeringUserId: string
+): FamilyCalendarSlot[] {
+  if (!workspaceHasFamilieSection(workspaceId)) return [];
+
+  const members = workspaceMembers.filter((m) => m.workspaceId === workspaceId);
+  const existing = familyCalendarSlots.filter((s) => s.workspaceId === workspaceId);
+
+  // Determine the highest sortOrder already in use so new slots are appended.
+  let maxOrder = existing.reduce((acc, s) => Math.max(acc, s.sortOrder), -1);
+
+  const GEMEINSAM_LABEL = "Gemeinsam";
+  const gemeinsamKey = GEMEINSAM_LABEL.toLowerCase();
+
+  // Ensure each member has a slot labelled with their displayName.
+  for (const member of members) {
+    const user = users.find((u) => u.id === member.userId);
+    if (!user) continue;
+    const label = user.displayName.trim().slice(0, 40) || `Mitglied`;
+    const alreadyHasSlot = existing.some(
+      (s) => s.ownerUserId === member.userId && s.workspaceId === workspaceId
+    );
+    if (!alreadyHasSlot) {
+      maxOrder += 1;
+      const newSlot: FamilyCalendarSlot = {
+        id: `fcs-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        workspaceId,
+        ownerUserId: member.userId,
+        label,
+        sortOrder: maxOrder,
+      };
+      familyCalendarSlots.push(newSlot);
+      existing.push(newSlot);
+    }
+  }
+
+  // Ensure the shared "Gemeinsam" slot exists (owned by the workspace owner or triggering user).
+  const hasGemeinsam = existing.some(
+    (s) => s.label.toLowerCase().trim() === gemeinsamKey
+  );
+  if (!hasGemeinsam) {
+    const ws = workspaces.find((w) => w.id === workspaceId);
+    const ownerUserId = ws?.ownerUserId ?? triggeringUserId;
+    maxOrder += 1;
+    const gemeinsamSlot: FamilyCalendarSlot = {
+      id: `fcs-gemeinsam-${workspaceId}-${Math.random().toString(36).slice(2, 8)}`,
+      workspaceId,
+      ownerUserId,
+      label: GEMEINSAM_LABEL,
+      sortOrder: maxOrder,
+    };
+    familyCalendarSlots.push(gemeinsamSlot);
+  }
+
+  return familyCalendarSlots.filter((s) => s.workspaceId === workspaceId).sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 function resolveFamilySlotForSave(
@@ -542,8 +609,9 @@ function resolveFamilySlotForSave(
       vacationForSelf: kind === "vacation" || kind === "ferien",
     };
   }
+  // Any workspace member may use any slot that belongs to the workspace (shared family calendar).
   const slot = familyCalendarSlots.find(
-    (s) => s.id === sid && s.ownerUserId === editorId && s.workspaceId === workspaceId
+    (s) => s.id === sid && s.workspaceId === workspaceId
   );
   if (!slot) return { ok: false, reason: "invalid_family_slot" };
   return {
@@ -560,10 +628,17 @@ export function replaceFamilyCalendarSlots(
   slotsIn: Array<{ label: string }>
 ): { ok: true; slots: FamilyCalendarSlot[] } | { ok: false; reason: string } {
   if (!isWorkspaceMember(ownerUserId, workspaceId)) return { ok: false, reason: "forbidden" };
-  if (slotsIn.length > 6) return { ok: false, reason: "max_6_slots" };
 
+  const GEMEINSAM_LABEL = "Gemeinsam";
+  const gemeinsamKey = GEMEINSAM_LABEL.toLowerCase();
+
+  // Enforce max-6 limit on non-Gemeinsam slots supplied by the caller.
+  const nonGemeinsamIn = slotsIn.filter((s) => s.label.trim().toLowerCase() !== gemeinsamKey);
+  if (nonGemeinsamIn.length > 6) return { ok: false, reason: "max_6_slots" };
+
+  // Work on all workspace-level slots (shared family calendar).
   const previous = familyCalendarSlots
-    .filter((s) => s.ownerUserId === ownerUserId && s.workspaceId === workspaceId)
+    .filter((s) => s.workspaceId === workspaceId)
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
   const labelToIds = new Map<string, string[]>();
@@ -574,13 +649,15 @@ export function replaceFamilyCalendarSlots(
     labelToIds.set(key, q);
   }
 
+  // Remove all existing workspace slots so we can rebuild them.
   for (let i = familyCalendarSlots.length - 1; i >= 0; i--) {
     const s = familyCalendarSlots[i]!;
-    if (s.ownerUserId === ownerUserId && s.workspaceId === workspaceId) {
+    if (s.workspaceId === workspaceId) {
       familyCalendarSlots.splice(i, 1);
     }
   }
 
+  // Build the new slot list from the caller's input.
   const ts = Date.now();
   const out: FamilyCalendarSlot[] = slotsIn.map((row, order) => {
     const label = row.label.trim().slice(0, 40) || `Person ${order + 1}`;
@@ -597,9 +674,24 @@ export function replaceFamilyCalendarSlots(
     return { id, workspaceId, ownerUserId, label, sortOrder: order };
   });
 
+  // Always ensure the "Gemeinsam" slot is present (append if not already in the list).
+  const hasGemeinsam = out.some((s) => s.label.toLowerCase().trim() === gemeinsamKey);
+  if (!hasGemeinsam) {
+    const existingGemeinsamId = labelToIds.get(gemeinsamKey)?.[0];
+    const ws = workspaces.find((w) => w.id === workspaceId);
+    const gemeinsamOwner = ws?.ownerUserId ?? ownerUserId;
+    out.push({
+      id: existingGemeinsamId ?? `fcs-gemeinsam-${workspaceId}-${Math.random().toString(36).slice(2, 8)}`,
+      workspaceId,
+      ownerUserId: gemeinsamOwner,
+      label: GEMEINSAM_LABEL,
+      sortOrder: out.length,
+    });
+  }
+
   const newIds = new Set(out.map((s) => s.id));
   for (const ev of calendarEvents) {
-    if (ev.workspaceId !== workspaceId || ev.createdByUserId !== ownerUserId) continue;
+    if (ev.workspaceId !== workspaceId) continue;
     if (!ev.familySlotId || ev.familySlotId === FAMILY_CALENDAR_SELF_SLOT_ID) continue;
     if (newIds.has(ev.familySlotId)) continue;
     const lbl = (ev.familySlotLabel ?? "").trim();
@@ -686,10 +778,20 @@ export function createCalendarEvent(input: {
     input.kind
   );
   if (!resolved.ok) return resolved;
-  const vis = [...new Set(input.visibilityUserIds.filter((id) => id && id !== input.creatorId))];
-  for (const uid of vis) {
-    if (!isWorkspaceMember(uid, input.workspaceId)) {
-      return { ok: false, reason: "visibility_invalid" };
+
+  // For "familie" section events, automatically share with all workspace members so
+  // everyone sees each other's calendar entries without manual visibility setup.
+  let vis: string[];
+  if (input.sectionId === "familie") {
+    vis = workspaceMembers
+      .filter((m) => m.workspaceId === input.workspaceId && m.userId !== input.creatorId)
+      .map((m) => m.userId);
+  } else {
+    vis = [...new Set(input.visibilityUserIds.filter((id) => id && id !== input.creatorId))];
+    for (const uid of vis) {
+      if (!isWorkspaceMember(uid, input.workspaceId)) {
+        return { ok: false, reason: "visibility_invalid" };
+      }
     }
   }
   let title = input.title.trim().slice(0, 200);
@@ -1540,6 +1642,11 @@ export function joinWorkspaceWithInvite(code: string, userId: string) {
     workspaceMembers.push({ workspaceId: invite.workspaceId, userId, role: "member" });
   }
   invite.usedCount += 1;
+
+  // Auto-create family calendar slots for all members (including the new joiner)
+  // whenever someone joins a workspace that has a "familie" section.
+  ensureFamilyCalendarSlotsForWorkspace(invite.workspaceId, userId);
+
   return { ok: true as const, workspaceId: invite.workspaceId };
 }
 
