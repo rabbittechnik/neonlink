@@ -55,6 +55,16 @@ function slotLabelIsGemeinsam(label: string): boolean {
   return label.toLowerCase().trim() === "gemeinsam";
 }
 
+/** Keine eigene Raster-Spalte für Anzeigenamen „Gemeinsam“ (sonst doppelte Spalte neben COL_GEMEINSAM). */
+function memberColumnIdOrGemeinsam(
+  userId: string,
+  members: Array<{ userId: string; displayName: string }>
+): string {
+  const m = members.find((x) => x.userId === userId);
+  if (m && slotLabelIsGemeinsam(m.displayName)) return COL_GEMEINSAM;
+  return memberColumnId(userId);
+}
+
 /** Dunkles Select: color-scheme dark + Hintergrund, damit Optionen unter Windows/Chrome lesbar bleiben. */
 const SELECT_DARK =
   "rounded-xl border border-white/20 bg-[#121c31] px-3 py-2 text-sm text-white shadow-inner [color-scheme:dark]";
@@ -103,19 +113,19 @@ function assignColumn(
   if (ev.familySlotId === null) return COL_GEMEINSAM;
 
   if (ev.familySlotId === FAMILY_CALENDAR_SELF_SLOT_ID) {
-    return memberColumnId(ev.createdByUserId);
+    return memberColumnIdOrGemeinsam(ev.createdByUserId, members);
   }
 
   const uid = uidFromSlotId(ev.familySlotId);
-  if (uid) return memberColumnId(uid);
+  if (uid) return memberColumnIdOrGemeinsam(uid, members);
 
   const label = (ev.familySlotLabel ?? "").toLowerCase().trim();
   if (label && label !== "gemeinsam") {
     const mem = members.find((m) => m.displayName.toLowerCase().trim() === label);
-    if (mem) return memberColumnId(mem.userId);
+    if (mem) return memberColumnIdOrGemeinsam(mem.userId, members);
     const sl = slots.find((s) => s.label.toLowerCase().trim() === label);
     if (sl && memberIds.has(sl.ownerUserId) && !slotLabelIsGemeinsam(sl.label))
-      return memberColumnId(sl.ownerUserId);
+      return memberColumnIdOrGemeinsam(sl.ownerUserId, members);
   }
 
   return COL_GETEILT;
@@ -361,8 +371,14 @@ export default function CalendarPage() {
     return uniq.slice().sort((a, b) => a.displayName.localeCompare(b.displayName, "de"));
   }, [members]);
 
+  /** Ohne „Gemeinsam“ als Personenname — vermeidet doppelte Spaltenüberschrift. */
+  const membersForFamilyGrid = useMemo(
+    () => membersSorted.filter((m) => !slotLabelIsGemeinsam(m.displayName)),
+    [membersSorted]
+  );
+
   const columns = useMemo(() => {
-    const memberCols = membersSorted.map((m) => ({
+    const memberCols = membersForFamilyGrid.map((m) => ({
       id: memberColumnId(m.userId),
       label: m.displayName,
     }));
@@ -371,7 +387,7 @@ export default function CalendarPage() {
       ...memberCols,
       { id: COL_GETEILT, label: "Geteilt / andere" },
     ];
-  }, [membersSorted]);
+  }, [membersForFamilyGrid]);
 
   const openNewModal = () => {
     setEditId(null);

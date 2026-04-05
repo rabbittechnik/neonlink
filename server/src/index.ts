@@ -105,6 +105,7 @@ import {
   updateWorkplaceEmployee,
   upsertEmployeeScheduleWish,
   users,
+  dedupeWorkspaceMembers,
   workspaceMembers,
   workspaces,
 } from "./store.js";
@@ -112,6 +113,7 @@ import { isMailConfigured, sendEmailVerificationCode, sendPasswordResetEmail } f
 import { initPersistenceAsync } from "./persistence.js";
 
 await initPersistenceAsync();
+dedupeWorkspaceMembers();
 
 const app = express();
 app.use(cors());
@@ -568,6 +570,7 @@ app.get("/workspaces/:id/members", requireAuth, (req, res) => {
   if (!isWorkspaceMember(req.authUserId!, req.params.id)) {
     return res.status(403).json({ error: "forbidden" });
   }
+  dedupeWorkspaceMembers();
   const members = workspaceMembers
     .filter((member) => member.workspaceId === req.params.id)
     .map((member) => {
