@@ -9,6 +9,10 @@ buildCommand = "export CI=true && npm ci --prefix server && npm run build --pref
 
 [build.environment]
 CI = "true"
+# Root-`npm ci` installiert devDependencies inkl. electron — Binary-Download scheitert oft in CI (502) und wird für den Web-Build nicht benötigt.
+ELECTRON_SKIP_BINARY_DOWNLOAD = "1"
+# Server/package.json verlangt Node ≥20; Joi (transitiv) ebenfalls.
+NIXPACKS_NODE_VERSION = "20"
 
 [deploy]
 startCommand = "cd server && BIND_ADDRESS=0.0.0.0 STATIC_DIST_PATH=../dist node dist/index.js"

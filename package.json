@@ -5,6 +5,9 @@
   "description": "NeonLink Desktop (Chat, Kalender, Arbeitsplan)",
   "author": "NeonLink",
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
