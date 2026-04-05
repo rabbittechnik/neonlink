@@ -372,6 +372,7 @@ export default function NeonLinkMockup() {
   const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipNextUnreadPersistRef = useRef(false);
   const prevActiveRoomForTypingRef = useRef<string | null>(null);
+  const loadFriendDataRef = useRef<(userId: string) => Promise<void>>(async () => {});
 
   const sections = mockWorkspace.sections;
   const [sidebarUpcoming, setSidebarUpcoming] = useState<ApiCalendarEvent[]>([]);
@@ -782,6 +783,11 @@ export default function NeonLinkMockup() {
         return;
       }
       if (!response.ok) throw new Error("Message send failed");
+      const message = (await response.json()) as ServerMessage;
+      setChatMessages((prev) => {
+        if (prev.some((entry) => entry.id === message.id)) return prev;
+        return [...prev, mapServerMessageToChat(message)];
+      });
       setMessageInput("");
       setReplyToMessageId(null);
       setPendingAttachments([]);
@@ -825,6 +831,11 @@ export default function NeonLinkMockup() {
         return;
       }
       if (!response.ok) throw new Error("Message send failed");
+      const message = (await response.json()) as ServerMessage;
+      setChatMessages((prev) => {
+        if (prev.some((entry) => entry.id === message.id)) return prev;
+        return [...prev, mapServerMessageToChat(message)];
+      });
     } catch {
       setChatMessages((prev) => [
         ...prev,
@@ -1133,10 +1144,20 @@ export default function NeonLinkMockup() {
     }
   };
 
+  loadFriendDataRef.current = loadFriendData;
+
   useEffect(() => {
     if (!currentUser) return;
     void loadFriendData(currentUser.id);
   }, [currentUser]);
+
+  /** Fallback, falls Socket-Events ausbleiben (Proxy, Tab im Hintergrund). */
+  useEffect(() => {
+    if (!token || !currentUser?.id) return;
+    const uid = currentUser.id;
+    const t = window.setInterval(() => void loadFriendDataRef.current(uid), 45_000);
+    return () => clearInterval(t);
+  }, [token, currentUser?.id]);
 
   useEffect(() => {
     if (!currentUser?.id) {
@@ -1581,13 +1602,19 @@ export default function NeonLinkMockup() {
       return;
     }
     const socket = io(SOCKET_ORIGIN, {
-      transports: ["websocket"],
       auth: { token },
+      transports: ["polling", "websocket"],
+      reconnection: true,
+      reconnectionAttempts: 12,
+      reconnectionDelay: 600,
+      reconnectionDelayMax: 10_000,
     });
     socketRef.current = socket;
     socket.on("connect", () => {
       joinedWorkspaceRoomsRef.current.clear();
       setIsBackendOnline(true);
+      const uid = currentUserRef.current?.id;
+      if (uid) void loadFriendDataRef.current(uid);
     });
     socket.on("disconnect", () => {
       joinedWorkspaceRoomsRef.current.clear();
@@ -1625,6 +1652,28 @@ export default function NeonLinkMockup() {
         });
       }
     );
+
+    socket.on(
+      "friends:incomingRequest",
+      (payload: {
+        id: string;
+        fromUserId: string;
+        toUserId: string;
+        status: "pending";
+        fromDisplayName?: string;
+      }) => {
+        if (payload.toUserId !== currentUserRef.current?.id) return;
+        setIncomingFriendRequests((prev) => {
+          if (prev.some((r) => r.id === payload.id)) return prev;
+          return [...prev, payload];
+        });
+      }
+    );
+
+    socket.on("friends:changed", () => {
+      const uid = currentUserRef.current?.id;
+      if (uid) void loadFriendDataRef.current(uid);
+    });
 
     return () => {
       joinedWorkspaceRoomsRef.current.clear();

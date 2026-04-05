@@ -115,6 +115,9 @@ import { initPersistenceAsync } from "./persistence.js";
 await initPersistenceAsync();
 dedupeWorkspaceMembers();
 
+/** gesetzt sobald Socket.IO steht — für HTTP-Handler (z. B. Freundschaftsanfragen live pushen) */
+let socketIo: Server | undefined;
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "30mb" }));
@@ -630,6 +633,11 @@ app.post("/friends/requests", requireAuth, (req, res) => {
   }
   const result = createFriendRequest(fromUserId, toUserId);
   if (!result.ok) return res.status(400).json({ error: result.reason });
+  const fromUser = users.find((u) => u.id === result.request.fromUserId);
+  socketIo?.to(`user:${toUserId}`).emit("friends:incomingRequest", {
+    ...result.request,
+    fromDisplayName: fromUser?.displayName,
+  });
   return res.status(201).json(result.request);
 });
 
@@ -640,6 +648,9 @@ app.post("/friends/requests/:requestId/respond", requireAuth, (req, res) => {
   }
   const result = respondToFriendRequest(req.params.requestId, userId, action);
   if (!result.ok) return res.status(400).json({ error: result.reason });
+  const r = result.request;
+  socketIo?.to(`user:${r.fromUserId}`).emit("friends:changed");
+  socketIo?.to(`user:${r.toUserId}`).emit("friends:changed");
   return res.status(200).json(result.request);
 });
 
@@ -1444,6 +1455,7 @@ const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: { origin: "*" },
 });
+socketIo = io;
 
 setChatMessageBroadcaster((roomId, message) => {
   io.to(`room:${roomId}`).emit("chat:messageCreated", message);
@@ -1461,6 +1473,7 @@ io.use((socket, next) => {
 
 io.on("connection", (socket) => {
   const socketUserId = socket.data.userId as string;
+  socket.join(`user:${socketUserId}`);
 
   socket.on("room:join", (roomId: string) => {
     const room = findRoomById(roomId);
