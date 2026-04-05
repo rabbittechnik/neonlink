@@ -3,9 +3,12 @@
 
 [build]
 builder = "nixpacks"
-# Kein zweites `npm ci` im Root: Nixpacks installiert schon — sonst EBUSY auf node_modules/.cache.
-# Cache leeren vor Vite, falls ein vorheriger Schritt ihn gesperrt hat.
-buildCommand = "npm ci --prefix server && npm run build --prefix server && rm -rf node_modules/.cache && VITE_EMBED_DESKTOP=true npm run build"
+# Kein `npm run build` am Ende: Nixpacks/Docker hängt sonst ein zweites "build" an → "npm run build build".
+# Stattdessen vite direkt; Root-`node_modules` kommt vom Nixpacks-Install (kein zweites npm ci im Root).
+buildCommand = "export CI=true && npm ci --prefix server && npm run build --prefix server && VITE_EMBED_DESKTOP=true npx vite build"
+
+[build.environment]
+CI = "true"
 
 [deploy]
 startCommand = "cd server && BIND_ADDRESS=0.0.0.0 STATIC_DIST_PATH=../dist node dist/index.js"
