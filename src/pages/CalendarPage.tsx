@@ -351,10 +351,15 @@ export default function CalendarPage() {
 
   const myColumnLabel = user?.displayName ?? "Mein Name";
 
-  const membersSorted = useMemo(
-    () => members.slice().sort((a, b) => a.displayName.localeCompare(b.displayName, "de")),
-    [members]
-  );
+  const membersSorted = useMemo(() => {
+    const seen = new Set<string>();
+    const uniq = members.filter((m) => {
+      if (seen.has(m.userId)) return false;
+      seen.add(m.userId);
+      return true;
+    });
+    return uniq.slice().sort((a, b) => a.displayName.localeCompare(b.displayName, "de"));
+  }, [members]);
 
   const columns = useMemo(() => {
     const memberCols = membersSorted.map((m) => ({

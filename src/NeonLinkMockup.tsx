@@ -363,6 +363,7 @@ export default function NeonLinkMockup() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messageInputRef = useRef<HTMLInputElement | null>(null);
   const chatScrollEndRef = useRef<HTMLDivElement | null>(null);
+  const chatScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const usersByIdRef = useRef<Record<string, ServerUser>>({});
   const senderUserIdRef = useRef("");
   const currentUserRef = useRef<ServerUser | null>(null);
@@ -459,16 +460,16 @@ export default function NeonLinkMockup() {
     [chatMessages, activeRoom]
   );
 
-  useEffect(() => {
-    const end = chatScrollEndRef.current;
-    if (!end) return;
-    const id = requestAnimationFrame(() => {
+  const scrollChatToBottom = useCallback(() => {
+    const root = chatScrollContainerRef.current;
+    if (!root) return;
+    requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        end.scrollIntoView({ block: "end", behavior: "auto" });
+        root.scrollTop = root.scrollHeight;
       });
     });
-    return () => cancelAnimationFrame(id);
-  }, [roomMessages, activeRoomId]);
+  }, []);
+
   const replyTarget = useMemo(
     () => (replyToMessageId ? roomMessages.find((m) => m.id === replyToMessageId) ?? null : null),
     [replyToMessageId, roomMessages]
@@ -480,6 +481,10 @@ export default function NeonLinkMockup() {
       : typingNames.length === 1
         ? `${typingNames[0]} tippt gerade...`
         : `${typingNames.join(", ")} tippen gerade...`;
+
+  useEffect(() => {
+    scrollChatToBottom();
+  }, [roomMessages, activeRoomId, typingOthersLabel, scrollChatToBottom]);
   const activeSectionData = useMemo(
     () => sections.find((section) => section.id === activeSection) ?? sections[0],
     [activeSection]
@@ -2325,7 +2330,11 @@ export default function NeonLinkMockup() {
                   Live-Chat
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex-1 min-h-0 min-w-0 rounded-b-3xl p-4 flex flex-col gap-4 overflow-x-hidden overflow-y-auto">
+              <CardContent className="flex-1 min-h-0 min-w-0 rounded-b-3xl p-0 flex flex-col overflow-hidden">
+                <div
+                  ref={chatScrollContainerRef}
+                  className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 flex flex-col gap-4"
+                >
                 {sourceRooms.length === 0 && activeWorkspaceId ? (
                   <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-8 text-sm text-white/65 text-center leading-relaxed">
                     In diesem Workspace sind noch keine Raeume geladen — bitte Seite neu laden oder kurz warten. Ohne
@@ -2366,22 +2375,26 @@ export default function NeonLinkMockup() {
                     currentUser?.chatTextColor,
                     usersById
                   );
+                  const mineId = currentUser?.id;
                   const isMine = Boolean(
-                    currentUser?.id &&
-                      (m.senderUserId === currentUser.id || (!m.senderUserId && m.from === "Du"))
+                    mineId && (m.senderUserId === mineId || (!m.senderUserId && m.from === "Du"))
                   );
                   const peerBubble =
                     !isMine && !m.calendarAnnouncement
                       ? otherUserBubbleStyle(m.senderUserId, senderHex)
                       : null;
-                  const bubbleMax = "max-w-[min(92%,24rem)]";
+                  const groupMax = "max-w-[min(92%,26rem)]";
+                  const bubbleMax = "max-w-full";
                   return (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.08 }}
-                    key={`${m.from}-${m.time}-${i}`}
-                    className={`group flex gap-3 w-full ${isMine ? "flex-row-reverse" : "flex-row"}`}
+                    key={m.id}
+                    className={`group flex w-full ${isMine ? "justify-end" : "justify-start"}`}
+                  >
+                  <div
+                    className={`flex gap-2 min-w-0 items-end ${groupMax} ${isMine ? "flex-row-reverse" : "flex-row"}`}
                   >
                     {openSenderProfile ? (
                       <button
@@ -2455,15 +2468,17 @@ export default function NeonLinkMockup() {
                       <div
                         className={`mt-1 w-fit ${bubbleMax} rounded-2xl border px-4 py-3 text-sm leading-relaxed shadow-lg shadow-black/10 ${
                           isMine
-                            ? "border-cyan-400/35 bg-gradient-to-br from-cyan-600/25 to-slate-900/50"
+                            ? "border-cyan-300/50 bg-gradient-to-br from-cyan-500/35 via-cyan-600/20 to-slate-900/55"
                             : m.calendarAnnouncement
-                              ? "border-white/10 bg-white/5"
-                              : ""
-                        } ${
-                          senderHex && !m.calendarAnnouncement ? "" : "text-white/90"
-                        }`}
+                              ? "border-white/10 bg-white/5 text-white/90"
+                              : peerBubble
+                                ? "text-white/90"
+                                : "border-white/10 bg-white/[0.07] text-white/90"
+                        } ${isMine && !senderHex && !m.calendarAnnouncement ? "text-white" : ""}`}
                         style={{
-                          ...(senderHex && !m.calendarAnnouncement ? { color: senderHex } : {}),
+                          ...(senderHex && !m.calendarAnnouncement
+                            ? { color: senderHex }
+                            : {}),
                           ...(peerBubble
                             ? {
                                 borderColor: peerBubble.borderColor,
@@ -2607,6 +2622,7 @@ export default function NeonLinkMockup() {
                         </div>
                       ) : null}
                     </div>
+                  </div>
                   </motion.div>
                   );
                 })}
@@ -2617,6 +2633,7 @@ export default function NeonLinkMockup() {
                   <div className="text-xs text-cyan-200/80">Du tippst gerade...</div>
                 ) : null}
                 <div ref={chatScrollEndRef} className="h-px w-full shrink-0" aria-hidden />
+                </div>
               </CardContent>
               <div className="border-t border-white/10 p-4">
                 {replyToMessageId ? (
@@ -2783,8 +2800,11 @@ export default function NeonLinkMockup() {
                         </span>
                       </div>
                     </div>
-                    <div className="pt-1">
+                    <div className="pt-1 space-y-0.5">
                       <span className="text-xs font-medium text-cyan-300/90">Profil bearbeiten →</span>
+                      <p className="text-[10px] text-white/40 leading-snug">
+                        Chat-Schriftfarbe: im Profil unter „Chat-Schriftfarbe“ (Farben & Freiwahl).
+                      </p>
                     </div>
                   </div>
                 </div>

@@ -140,6 +140,40 @@ export const workspaceMembers: Array<{
   { workspaceId: "ws-neonlink", userId: "u2", role: "admin" },
 ];
 
+const MEMBER_ROLE_RANK: Record<"owner" | "admin" | "member" | "guest", number> = {
+  owner: 0,
+  admin: 1,
+  member: 2,
+  guest: 3,
+};
+
+function memberRoleRank(role: "owner" | "admin" | "member" | "guest"): number {
+  return MEMBER_ROLE_RANK[role];
+}
+
+/**
+ * Entfernt doppelte (workspaceId, userId)-Zeilen. Verhindert u. a. doppelte Kalender-Spalten,
+ * wenn dieselbe Mitgliedschaft mehrfach in Snapshots landete.
+ */
+export function dedupeWorkspaceMembers(): void {
+  const byKey = new Map<
+    string,
+    { workspaceId: string; userId: string; role: "owner" | "admin" | "member" | "guest" }
+  >();
+  for (const m of workspaceMembers) {
+    const key = `${m.workspaceId}\0${m.userId}`;
+    const prev = byKey.get(key);
+    if (!prev) {
+      byKey.set(key, m);
+    } else if (memberRoleRank(m.role) < memberRoleRank(prev.role)) {
+      byKey.set(key, m);
+    }
+  }
+  if (byKey.size === workspaceMembers.length) return;
+  workspaceMembers.length = 0;
+  workspaceMembers.push(...byKey.values());
+}
+
 export const invites: Array<{
   id: string;
   workspaceId: string;
@@ -2899,6 +2933,7 @@ export function restoreStoreSnapshot(raw: unknown): boolean {
     }
     replaceArray(workspaces, s.workspaces);
     replaceArray(workspaceMembers, s.workspaceMembers);
+    dedupeWorkspaceMembers();
     replaceArray(invites, s.invites);
     replaceArray(friendRequests, s.friendRequests);
     replaceArray(friendships, s.friendships);
