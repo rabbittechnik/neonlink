@@ -1,0 +1,12 @@
+# NeonLink: ein Dienst = API + Socket.IO + statische Web-App (gleiche Origin).
+# https://docs.railway.com/reference/config-as-code
+
+[build]
+builder = "nixpacks"
+buildCommand = "npm ci && npm ci --prefix server && npm run build --prefix server && VITE_EMBED_DESKTOP=true npm run build"
+
+[deploy]
+startCommand = "cd server && BIND_ADDRESS=0.0.0.0 STATIC_DIST_PATH=../dist node dist/index.js"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"

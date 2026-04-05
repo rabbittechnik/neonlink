@@ -11,12 +11,19 @@ const embedDesktop = import.meta.env.VITE_EMBED_DESKTOP === "true";
 /** In DEV ohne VITE_API_BASE_URL: REST über Vite-Proxy `/api` → Backend */
 const devUsesProxy = import.meta.env.DEV && !fromEnv;
 
-/** Basis für fetch() und Links (kann relativ `/api` sein bzw. leer = gleiche Origin) */
+/**
+ * Basis für fetch() (leer = gleiche Origin wie die Seite — z. B. Railway mit STATIC_DIST_PATH).
+ * In Production ohne VITE_API_BASE_URL: immer gleiche Origin, nie localhost (sonst bricht Hosting).
+ */
 export const API_BASE_URL = devUsesProxy
   ? "/api"
-  : embedDesktop
-    ? ""
-    : fromEnv || "http://localhost:4000";
+  : fromEnv
+    ? fromEnv
+    : embedDesktop
+      ? ""
+      : import.meta.env.PROD
+        ? ""
+        : "http://localhost:4000";
 
 const envSocket = import.meta.env.VITE_SOCKET_URL;
 const socketFromEnv = typeof envSocket === "string" ? stripTrailingSlash(envSocket.trim()) : "";
@@ -29,4 +36,12 @@ export const SOCKET_ORIGIN = embedDesktop
   ? typeof window !== "undefined"
     ? window.location.origin
     : "http://127.0.0.1:4000"
-  : socketFromEnv || (devUsesProxy ? "http://localhost:4000" : API_BASE_URL);
+  : socketFromEnv
+    ? socketFromEnv
+    : devUsesProxy
+      ? "http://localhost:4000"
+      : API_BASE_URL
+        ? API_BASE_URL
+        : typeof window !== "undefined"
+          ? window.location.origin
+          : "http://127.0.0.1:4000";
