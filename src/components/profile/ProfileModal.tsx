@@ -410,11 +410,24 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
                       onClick={async () => {
                         setError(null);
                         try {
-                          await startEmailVerification();
+                          const v = await startEmailVerification();
                           setEmailCodeOpen(true);
-                          setHint("Demo: Code in der Server-Konsole.");
+                          if (v.sent) {
+                            setHint("Code wurde an deine Profil-E-Mail gesendet (Postfach prüfen, ggf. Spam).");
+                          } else if (v.demoHint) {
+                            setHint(v.demoHint);
+                          } else {
+                            setHint("Prüfe dein E-Mail-Postfach.");
+                          }
                         } catch (err) {
-                          setError(err instanceof Error ? err.message : "Fehler");
+                          const code = err instanceof Error ? err.message : "";
+                          setError(
+                            code === "smtp_not_configured"
+                              ? "E-Mail-Versand ist nicht eingerichtet (SMTP auf dem Server fehlt)."
+                              : code === "email_delivery_failed"
+                                ? "E-Mail konnte nicht gesendet werden. Bitte später erneut versuchen."
+                                : code || "Fehler beim Senden des Codes."
+                          );
                         }
                       }}
                     >

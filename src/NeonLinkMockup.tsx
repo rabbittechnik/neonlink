@@ -47,6 +47,7 @@ import { useNavigate } from "react-router-dom";
 import { CalendarAnnouncementMessage } from "@/components/chat/CalendarAnnouncementMessage";
 import { NewChatModal } from "@/components/chat/NewChatModal";
 import { ProfileModal } from "@/components/profile/ProfileModal";
+import { PeerProfileModal } from "@/components/profile/PeerProfileModal";
 import { FriendsPanel } from "@/components/friends/FriendsPanel";
 import { MeetingsWorkspacePanel } from "@/components/meetings/MeetingsWorkspacePanel";
 import { NewsFeedPanel } from "@/components/news/NewsFeedPanel";
@@ -66,6 +67,7 @@ import {
   sortGlobalsMainFirst,
   type WorkspaceChatRoom,
 } from "@/utils/workspaceChats";
+import { pickSharedWorkspaceId } from "@/utils/workspacePick";
 
 const iconBySection: Record<SectionId, React.ComponentType<{ className?: string }>> = {
   familie: Home,
@@ -149,6 +151,7 @@ type WorkspaceSummary = {
   id: string;
   name: string;
   ownerUserId: string;
+  memberCount?: number;
 };
 
 type ServerUser = {
@@ -298,6 +301,7 @@ export default function NeonLinkMockup() {
   >([]);
   const [friendInfo, setFriendInfo] = useState("");
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [peerProfileUserId, setPeerProfileUserId] = useState<string | null>(null);
   const [mainView, setMainView] = useState<"chat" | "meetings" | "news">("chat");
   const [meetingRooms, setMeetingRooms] = useState<ApiMeetingRoom[]>([]);
   const [meetingInviteEvents, setMeetingInviteEvents] = useState<ApiCalendarEvent[]>([]);
@@ -315,6 +319,7 @@ export default function NeonLinkMockup() {
   const [messageOverflowId, setMessageOverflowId] = useState<string | null>(null);
   const [emojiBarOpen, setEmojiBarOpen] = useState(false);
   const socketRef = useRef<Socket | null>(null);
+  const joinedWorkspaceRoomsRef = useRef<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messageInputRef = useRef<HTMLInputElement | null>(null);
   const usersByIdRef = useRef<Record<string, ServerUser>>({});
@@ -324,6 +329,7 @@ export default function NeonLinkMockup() {
   const activeSectionRef = useRef(activeSection);
   const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipNextUnreadPersistRef = useRef(false);
+  const prevActiveRoomForTypingRef = useRef<string | null>(null);
 
   const sections = mockWorkspace.sections;
   const [sidebarUpcoming, setSidebarUpcoming] = useState<ApiCalendarEvent[]>([]);
@@ -854,8 +860,8 @@ export default function NeonLinkMockup() {
       try {
         const list = await fetchJson<WorkspaceSummary[]>("/workspaces");
         if (cancelled) return;
-        const owned = list.find((w) => w.ownerUserId === currentUser.id);
-        const pick = owned ?? list[0];
+        const sharedId = pickSharedWorkspaceId(list);
+        const pick = list.find((w) => w.id === sharedId) ?? list[0];
         if (pick) {
           setActiveWorkspaceId(pick.id);
           setWorkspaceLabel(pick.name);
@@ -1518,8 +1524,14 @@ export default function NeonLinkMockup() {
       auth: { token },
     });
     socketRef.current = socket;
-    socket.on("connect", () => setIsBackendOnline(true));
-    socket.on("disconnect", () => setIsBackendOnline(false));
+    socket.on("connect", () => {
+      joinedWorkspaceRoomsRef.current.clear();
+      setIsBackendOnline(true);
+    });
+    socket.on("disconnect", () => {
+      joinedWorkspaceRoomsRef.current.clear();
+      setIsBackendOnline(false);
+    });
     socket.on("connect_error", () => setIsBackendOnline(false));
 
     socket.on("chat:messageCreated", (message: ServerMessage) => {
@@ -1554,6 +1566,7 @@ export default function NeonLinkMockup() {
     );
 
     return () => {
+      joinedWorkspaceRoomsRef.current.clear();
       socket.disconnect();
       socketRef.current = null;
     };
@@ -1561,20 +1574,36 @@ export default function NeonLinkMockup() {
 
   useEffect(() => {
     const socket = socketRef.current;
-    if (!socket || !activeRoomId) return;
-    const user = currentUserRef.current;
-    socket.emit("room:join", activeRoomId);
-    return () => {
-      if (user) {
-        socket.emit("chat:typing", {
-          roomId: activeRoomId,
-          userId: user.id,
-          displayName: user.displayName,
-          isTyping: false,
-        });
+    if (!socket?.connected || !isBackendOnline || !token) return;
+    const ids = new Set(serverRooms.map((r) => r.id));
+    const prev = joinedWorkspaceRoomsRef.current;
+    for (const id of [...prev]) {
+      if (!ids.has(id)) {
+        socket.emit("room:leave", id);
+        prev.delete(id);
       }
-      socket.emit("room:leave", activeRoomId);
-    };
+    }
+    for (const id of ids) {
+      if (!prev.has(id)) {
+        socket.emit("room:join", id);
+        prev.add(id);
+      }
+    }
+  }, [serverRooms, isBackendOnline, token]);
+
+  useEffect(() => {
+    const socket = socketRef.current;
+    const user = currentUserRef.current;
+    const prev = prevActiveRoomForTypingRef.current;
+    if (socket?.connected && user && prev && prev !== activeRoomId) {
+      socket.emit("chat:typing", {
+        roomId: prev,
+        userId: user.id,
+        displayName: user.displayName,
+        isTyping: false,
+      });
+    }
+    prevActiveRoomForTypingRef.current = activeRoomId || null;
   }, [activeRoomId]);
 
   const openChatFromNews = (roomId: string, sectionId: SectionId) => {
@@ -2273,6 +2302,8 @@ export default function NeonLinkMockup() {
                       : m.senderUserId
                         ? usersById[m.senderUserId]?.avatarUrl ?? m.avatarUrl
                         : m.avatarUrl;
+                  const openSenderProfile =
+                    Boolean(m.senderUserId && m.senderUserId !== currentUser?.id);
                   return (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
@@ -2281,18 +2312,45 @@ export default function NeonLinkMockup() {
                     key={`${m.from}-${m.time}-${i}`}
                     className="group flex gap-3"
                   >
-                    <Avatar className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-white/15">
-                      {msgAvatarSrc ? (
-                        <img src={msgAvatarSrc} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <AvatarFallback className="flex h-full w-full items-center justify-center bg-white/10 text-xs font-medium text-white">
-                          {m.from.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      )}
-                    </Avatar>
+                    {openSenderProfile ? (
+                      <button
+                        type="button"
+                        onClick={() => setPeerProfileUserId(m.senderUserId!)}
+                        className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-white/15 p-0 bg-transparent cursor-pointer hover:ring-2 hover:ring-cyan-400/40 transition-shadow"
+                        title="Profil anzeigen"
+                      >
+                        {msgAvatarSrc ? (
+                          <img src={msgAvatarSrc} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center bg-white/10 text-xs font-medium text-white">
+                            {m.from.slice(0, 2).toUpperCase()}
+                          </span>
+                        )}
+                      </button>
+                    ) : (
+                      <Avatar className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-white/15">
+                        {msgAvatarSrc ? (
+                          <img src={msgAvatarSrc} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <AvatarFallback className="flex h-full w-full items-center justify-center bg-white/10 text-xs font-medium text-white">
+                            {m.from.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                    )}
                     <div className="flex-1">
                       <div className="flex items-center gap-2 text-sm">
-                        <span className="font-semibold">{m.from}</span>
+                        {openSenderProfile ? (
+                          <button
+                            type="button"
+                            onClick={() => setPeerProfileUserId(m.senderUserId!)}
+                            className="font-semibold text-left hover:text-cyan-200 transition-colors"
+                          >
+                            {m.from}
+                          </button>
+                        ) : (
+                          <span className="font-semibold">{m.from}</span>
+                        )}
                         <span
                           className={`h-2 w-2 rounded-full ${
                             m.role === "online"
@@ -2875,6 +2933,7 @@ export default function NeonLinkMockup() {
                   friendGroupOptions={friendGroupOptions}
                   onSetFriendGroup={(fid, g) => void setFriendGroup(fid, g)}
                   onAddFriendByCode={addFriendByCode}
+                  onOpenFriendProfile={(id) => setPeerProfileUserId(id)}
                   onOpenPrivateChat={openPrivateChatWithFriend}
                 />
                 </div>
@@ -2899,6 +2958,8 @@ export default function NeonLinkMockup() {
         activeSectionId={activeSection}
         activeSectionLabel={activeSectionData.label}
       />
+
+      <PeerProfileModal userId={peerProfileUserId} onClose={() => setPeerProfileUserId(null)} />
     </div>
   );
 }

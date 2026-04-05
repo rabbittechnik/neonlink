@@ -47,6 +47,7 @@ type Props = {
   activeSection: SectionId;
   groupOptions: FriendGroupOption[];
   onSetFriendGroup: (friendId: string, group: FriendListEntry["group"]) => void;
+  onOpenFriendProfile: (friendId: string) => void;
   onOpenPrivateChat: (friendId: string) => void;
   chatBusyId: string | null;
 };
@@ -56,6 +57,7 @@ export function FriendsList({
   activeSection,
   groupOptions,
   onSetFriendGroup,
+  onOpenFriendProfile,
   onOpenPrivateChat,
   chatBusyId,
 }: Props) {
@@ -83,65 +85,77 @@ export function FriendsList({
             );
             const opt = groupOptions.find((g) => g.value === friend.group);
             return (
-              <button
+              <div
                 key={friend.id}
-                type="button"
-                onClick={() => onOpenPrivateChat(friend.id)}
-                disabled={chatBusyId === friend.id}
-                className="w-full text-left rounded-2xl border border-white/10 bg-black/20 p-2.5 hover:bg-white/[0.07] hover:border-cyan-400/25 transition-all group flex gap-2.5 items-center min-w-0 disabled:opacity-60"
+                className="w-full rounded-2xl border border-white/10 bg-black/20 p-2.5 hover:bg-white/[0.07] hover:border-cyan-400/25 transition-all group flex flex-col gap-2 min-w-0"
               >
-                <div className="relative shrink-0">
-                  <Avatar className="h-11 w-11 overflow-hidden rounded-full border border-white/15 ring-2 ring-transparent group-hover:ring-cyan-400/30 transition-all">
-                    {friend.avatarUrl ? (
-                      <img src={friend.avatarUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <AvatarFallback className="flex h-full w-full items-center justify-center bg-gradient-to-br from-cyan-500/30 to-violet-500/20 text-sm">
-                        {friend.displayName.slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    )}
-                  </Avatar>
-                  <span
-                    className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-[#0a1020] ${
-                      presence === "online"
-                        ? "bg-emerald-400"
-                        : presence === "away"
-                          ? "bg-amber-400"
-                          : presence === "busy"
-                            ? "bg-violet-400"
-                            : presence === "on_call"
-                              ? "bg-red-400 animate-pulse"
-                              : "bg-white/25"
-                    }`}
-                    title={STATUS_PILL[presence].label}
-                  />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-sm font-medium truncate text-white">{friend.displayName}</span>
-                    <MessageCircle className="h-3.5 w-3.5 text-cyan-400/50 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                    <StatusDot presence={presence} />
-                    <span className="text-[10px] text-white/40" title={opt?.label}>
-                      {opt?.emoji} {opt?.label ?? friend.group}
-                    </span>
-                  </div>
-                  <select
-                    className="mt-2 w-full max-w-full rounded-lg bg-white/5 border border-white/10 text-[11px] py-1 px-2 text-white/90 pointer-events-auto"
-                    value={friend.group}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => {
-                      onSetFriendGroup(friend.id, e.target.value as FriendListEntry["group"]);
-                    }}
+                <div className="flex gap-2 items-start min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => onOpenFriendProfile(friend.id)}
+                    className="min-w-0 flex-1 text-left flex gap-2.5 items-center rounded-xl -m-0.5 p-0.5 hover:bg-white/[0.06] transition-colors"
                   >
-                    {groupOptions.map((g) => (
-                      <option key={g.value} value={g.value} className="bg-[#121c31] text-white">
-                        {g.emoji} {g.label}
-                      </option>
-                    ))}
-                  </select>
+                    <div className="relative shrink-0">
+                      <Avatar className="h-11 w-11 overflow-hidden rounded-full border border-white/15 ring-2 ring-transparent group-hover:ring-cyan-400/30 transition-all">
+                        {friend.avatarUrl ? (
+                          <img src={friend.avatarUrl} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <AvatarFallback className="flex h-full w-full items-center justify-center bg-gradient-to-br from-cyan-500/30 to-violet-500/20 text-sm">
+                            {friend.displayName.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                      <span
+                        className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-[#0a1020] ${
+                          presence === "online"
+                            ? "bg-emerald-400"
+                            : presence === "away"
+                              ? "bg-amber-400"
+                              : presence === "busy"
+                                ? "bg-violet-400"
+                                : presence === "on_call"
+                                  ? "bg-red-400 animate-pulse"
+                                  : "bg-white/25"
+                        }`}
+                        title={STATUS_PILL[presence].label}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm font-medium truncate text-white">{friend.displayName}</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                        <StatusDot presence={presence} />
+                        <span className="text-[10px] text-white/40" title={opt?.label}>
+                          {opt?.emoji} {opt?.label ?? friend.group}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void onOpenPrivateChat(friend.id)}
+                    disabled={chatBusyId === friend.id}
+                    title="Direktchat öffnen"
+                    className="shrink-0 rounded-xl p-2 text-cyan-300/80 hover:bg-cyan-500/15 hover:text-cyan-200 disabled:opacity-50 transition-colors"
+                  >
+                    <MessageCircle className="h-5 w-5" />
+                  </button>
                 </div>
-              </button>
+                <select
+                  className="w-full max-w-full rounded-lg bg-white/5 border border-white/10 text-[11px] py-1 px-2 text-white/90"
+                  value={friend.group}
+                  onChange={(e) => {
+                    onSetFriendGroup(friend.id, e.target.value as FriendListEntry["group"]);
+                  }}
+                >
+                  {groupOptions.map((g) => (
+                    <option key={g.value} value={g.value} className="bg-[#121c31] text-white">
+                      {g.emoji} {g.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             );
           })
         )}

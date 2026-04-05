@@ -55,6 +55,7 @@ import {
   getWorkScheduleViewersForEditor,
   getWorkScheduleRules,
   getWorkspaceMeeting,
+  hasSharedWorkspace,
   isFriend,
   isWorkspaceMember,
   joinWorkspaceWithInvite,
@@ -107,7 +108,7 @@ import {
   workspaceMembers,
   workspaces,
 } from "./store.js";
-import { isMailConfigured, sendPasswordResetEmail } from "./mail.js";
+import { isMailConfigured, sendEmailVerificationCode, sendPasswordResetEmail } from "./mail.js";
 import { initPersistenceAsync } from "./persistence.js";
 
 await initPersistenceAsync();
@@ -288,13 +289,38 @@ app.post("/auth/me/friend-code/regenerate", requireAuth, (_req, res) => {
   return res.json(toPrivateProfile(user));
 });
 
-app.post("/auth/me/verify/email/start", requireAuth, (_req, res) => {
+app.post("/auth/me/verify/email/start", requireAuth, async (_req, res) => {
   const user = users.find((u) => u.id === _req.authUserId);
   if (!user) return res.status(401).json({ error: "unauthorized" });
+  const to = user.contactEmail?.trim();
+  if (!to) {
+    return res.status(400).json({ error: "contact_email_required" });
+  }
   const code = `${Math.floor(100000 + Math.random() * 900000)}`;
   demoEmailCodes.set(user.id, { code, exp: Date.now() + 10 * 60 * 1000 });
-  console.log(`[NeonLink Demo] E-Mail-Verifizierung für ${user.contactEmail}: ${code}`);
-  return res.json({ ok: true, demoHint: "Code steht in der Server-Konsole." });
+
+  /** Wenn SMTP gesetzt ist, immer echten Versand (Railway setzt oft kein NODE_ENV=production). */
+  if (isMailConfigured()) {
+    try {
+      await sendEmailVerificationCode(to, code, user.displayName);
+      console.info("[neonlink] E-Mail-Verifizierung gesendet an", to);
+      return res.json({ ok: true, sent: true });
+    } catch (err) {
+      console.error("[neonlink] sendEmailVerificationCode:", err);
+      return res.status(503).json({ error: "email_delivery_failed" });
+    }
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`[NeonLink Demo] E-Mail-Verifizierung für ${to}: ${code}`);
+    return res.json({
+      ok: true,
+      demoHint: "Code steht in der Server-Konsole (Development).",
+    });
+  }
+
+  console.warn("[neonlink] SMTP_HOST nicht gesetzt – keine Verifizierungs-E-Mail.");
+  return res.status(503).json({ error: "smtp_not_configured" });
 });
 
 app.post("/auth/me/verify/email/confirm", requireAuth, (req, res) => {
@@ -445,7 +471,8 @@ app.get("/users/:id/profile", requireAuth, (req, res) => {
   const user = users.find((entry) => entry.id === req.params.id);
   if (!user) return res.status(404).json({ error: "user_not_found" });
   const isSelf = requesterUserId === user.id;
-  const allowed = isSelf || isFriend(requesterUserId, user.id);
+  const allowed =
+    isSelf || isFriend(requesterUserId, user.id) || hasSharedWorkspace(requesterUserId, user.id);
   if (!allowed) {
     return res.json({
       id: user.id,
@@ -453,17 +480,16 @@ app.get("/users/:id/profile", requireAuth, (req, res) => {
       status: "offline",
     });
   }
-  return res.json({
-    id: user.id,
-    displayName: user.displayName,
-    status: user.status,
-    friendCode: user.friendCode,
-  });
+  return res.json(formatUserForPeerView(requesterUserId, user));
 });
 
 app.get("/workspaces", requireAuth, (req, res) => {
   const list = listWorkspacesForUser(req.authUserId!);
-  return res.json(list);
+  const enriched = list.map((w) => ({
+    ...w,
+    memberCount: workspaceMembers.filter((m) => m.workspaceId === w.id).length,
+  }));
+  return res.json(enriched);
 });
 
 app.get("/workspaces/:id", requireAuth, (req, res) => {

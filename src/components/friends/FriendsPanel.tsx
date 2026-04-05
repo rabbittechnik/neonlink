@@ -39,6 +39,7 @@ export type FriendsPanelProps = {
   friendGroupOptions: FriendGroupOption[];
   onSetFriendGroup: (friendId: string, group: FriendGroup) => void;
   onAddFriendByCode: (code: string) => Promise<void>;
+  onOpenFriendProfile: (friendId: string) => void;
   onOpenPrivateChat: (friendId: string) => Promise<void>;
 };
 
@@ -67,6 +68,7 @@ export function FriendsPanel({
   friendGroupOptions,
   onSetFriendGroup,
   onAddFriendByCode,
+  onOpenFriendProfile,
   onOpenPrivateChat,
 }: FriendsPanelProps) {
   const [copyHint, setCopyHint] = useState<string | null>(null);
@@ -167,6 +169,7 @@ export function FriendsPanel({
         activeSection={activeSection}
         groupOptions={friendGroupOptions}
         onSetFriendGroup={onSetFriendGroup}
+        onOpenFriendProfile={onOpenFriendProfile}
         onOpenPrivateChat={handleOpenChat}
         chatBusyId={chatBusyId}
       />

@@ -32,6 +32,7 @@ import {
   type FamilyCalendarSlot,
 } from "@/types/calendar";
 import type { SectionId } from "@/types/collab";
+import { pickSharedWorkspaceId } from "@/utils/workspacePick";
 
 const SECTION_ICONS: Record<SectionId, LucideIcon> = {
   familie: Home,
@@ -80,11 +81,15 @@ function assignColumn(
   ev: ApiCalendarEvent,
   viewerId: string,
   mySlots: FamilyCalendarSlot[],
-  myDisplayName: string
+  myDisplayName: string,
+  peerUserIds: string[]
 ): string {
   if (ev.createdByUserId !== viewerId) {
     if (ev.familySlotId === null) return COL_GEMEINSAM;
     if (ev.familySlotId === FAMILY_CALENDAR_SELF_SLOT_ID) {
+      if (peerUserIds.includes(ev.createdByUserId)) {
+        return `peer-${ev.createdByUserId}`;
+      }
       const theirs = (ev.familySlotLabel ?? "").toLowerCase().trim();
       const mine = myDisplayName.toLowerCase().trim();
       if (theirs && mine && theirs === mine) return FAMILY_CALENDAR_SELF_SLOT_ID;
@@ -154,7 +159,9 @@ function showRangeOwnerInList(ev: ApiCalendarEvent): boolean {
 export default function CalendarPage() {
   const { user, authFetch, logout } = useAuth();
   const navigate = useNavigate();
-  const [workspaces, setWorkspaces] = useState<Array<{ id: string; name: string; ownerUserId: string }>>([]);
+  const [workspaces, setWorkspaces] = useState<
+    Array<{ id: string; name: string; ownerUserId: string; memberCount?: number }>
+  >([]);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [cursor, setCursor] = useState(() => {
     const n = new Date();
@@ -206,11 +213,13 @@ export default function CalendarPage() {
     let c = false;
     void (async () => {
       try {
-        const list = await fetchJson<Array<{ id: string; name: string; ownerUserId: string }>>("/workspaces");
+        const list = await fetchJson<
+          Array<{ id: string; name: string; ownerUserId: string; memberCount?: number }>
+        >("/workspaces");
         if (c) return;
         setWorkspaces(list);
-        const own = list.find((w) => w.ownerUserId === user?.id);
-        setWorkspaceId(own?.id ?? list[0]?.id ?? null);
+        const preferred = pickSharedWorkspaceId(list);
+        setWorkspaceId(preferred ?? list[0]?.id ?? null);
       } catch {
         setWorkspaceId(null);
       } finally {
@@ -311,15 +320,29 @@ export default function CalendarPage() {
 
   const myColumnLabel = user?.displayName ?? "Mein Name";
 
+  const peerUserIds = useMemo(
+    () => members.filter((m) => m.userId !== mine).map((m) => m.userId),
+    [members, mine]
+  );
+
   const columns = useMemo(() => {
+    const peersSorted = members
+      .filter((m) => m.userId !== mine)
+      .slice()
+      .sort((a, b) => a.displayName.localeCompare(b.displayName, "de"));
+    const peerCols = peersSorted.map((m) => ({
+      id: `peer-${m.userId}`,
+      label: m.displayName,
+    }));
     const base: Array<{ id: string; label: string }> = [
       { id: COL_GEMEINSAM, label: "Gemeinsam" },
       { id: FAMILY_CALENDAR_SELF_SLOT_ID, label: myColumnLabel },
+      ...peerCols,
     ];
     slots.forEach((s) => base.push({ id: s.id, label: s.label }));
     base.push({ id: COL_GETEILT, label: "Geteilt / andere" });
     return base;
-  }, [slots, myColumnLabel]);
+  }, [slots, myColumnLabel, members, mine]);
 
   const openNewModal = () => {
     setEditId(null);
@@ -693,7 +716,7 @@ export default function CalendarPage() {
                     const rangeBarsSource = events.filter(
                       (ev) =>
                         isCalendarRangeKind(ev.kind) &&
-                        assignColumn(ev, mine, slots, myColumnLabel) === col.id
+                        assignColumn(ev, mine, slots, myColumnLabel, peerUserIds) === col.id
                     );
                     const vacationBars = rangeBarsSource
                       .map((ev) => {
@@ -760,7 +783,7 @@ export default function CalendarPage() {
                               (ev) =>
                                 !isCalendarRangeKind(ev.kind) &&
                                 eventTouchesDay(ev, d) &&
-                                assignColumn(ev, mine, slots, myColumnLabel) === col.id
+                                assignColumn(ev, mine, slots, myColumnLabel, peerUserIds) === col.id
                             );
                             return (
                               <div

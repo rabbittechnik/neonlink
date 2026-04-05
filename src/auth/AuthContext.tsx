@@ -84,7 +84,7 @@ type AuthContextValue = {
   authFetch: (path: string, init?: RequestInit) => Promise<Response>;
   setAvatar: (avatarDataUrl: string | null) => Promise<void>;
   updateProfile: (patch: ProfilePatch) => Promise<void>;
-  startEmailVerification: () => Promise<{ demoHint?: string }>;
+  startEmailVerification: () => Promise<{ demoHint?: string; sent?: boolean }>;
   confirmEmailVerification: (code: string) => Promise<void>;
   startPhoneVerification: () => Promise<{ demoHint?: string }>;
   confirmPhoneVerification: (code: string) => Promise<void>;
@@ -278,7 +278,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const err = (await res.json().catch(() => ({}))) as { error?: string };
       throw new Error(err.error ?? "verify_start_failed");
     }
-    return (await res.json()) as { demoHint?: string };
+    return (await res.json()) as { demoHint?: string; sent?: boolean };
   }, [authFetch]);
 
   const confirmEmailVerification = useCallback(

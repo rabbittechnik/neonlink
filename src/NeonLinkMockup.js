@@ -21,6 +21,7 @@ import { NewsFeedPanel } from "@/components/news/NewsFeedPanel";
 import { resolvePresenceForSection } from "@/utils/resolveUserPresence";
 import { maskPhoneDigits } from "@/utils/maskPhone";
 import { displayChatTitle, enrichOfflineRooms, lastRoomStorageKey, pickDefaultRoomForSection, roomsForSection, sortByActivity, sortGlobalsMainFirst, } from "@/utils/workspaceChats";
+import { pickSharedWorkspaceId } from "@/utils/workspacePick";
 const iconBySection = {
     familie: Home,
     freunde: Users,
@@ -651,8 +652,8 @@ export default function NeonLinkMockup() {
                 const list = await fetchJson("/workspaces");
                 if (cancelled)
                     return;
-                const owned = list.find((w) => w.ownerUserId === currentUser.id);
-                const pick = owned ?? list[0];
+                const sharedId = pickSharedWorkspaceId(list);
+                const pick = list.find((w) => w.id === sharedId) ?? list[0];
                 if (pick) {
                     setActiveWorkspaceId(pick.id);
                     setWorkspaceLabel(pick.name);

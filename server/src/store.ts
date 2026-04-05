@@ -1401,6 +1401,19 @@ export function hasSharedWorkspace(userA: string, userB: string): boolean {
   return workspaceMembers.some((m) => m.userId === userB && aWs.has(m.workspaceId));
 }
 
+/** Beide Nutzer in alle persönlichen Workspaces des anderen aufnehmen — gemeinsame Chats & Kalender. */
+export function ensureMutualWorkspaceMembership(userA: string, userB: string): void {
+  if (userA === userB) return;
+  const add = (workspaceId: string, userId: string) => {
+    if (workspaceMembers.some((m) => m.workspaceId === workspaceId && m.userId === userId)) return;
+    workspaceMembers.push({ workspaceId, userId, role: "member" });
+  };
+  for (const w of workspaces) {
+    if (w.ownerUserId === userA) add(w.id, userB);
+    if (w.ownerUserId === userB) add(w.id, userA);
+  }
+}
+
 export function canSeeContactEmail(viewerId: string, target: User): boolean {
   if (viewerId === target.id) return true;
   if (target.emailVisibility === "public") return true;
@@ -1604,6 +1617,7 @@ export function respondToFriendRequest(requestId: string, userId: string, action
     friendships.push({ userAId: request.fromUserId, userBId: request.toUserId, createdAt: now() });
     friendGroupAssignments.push({ ownerUserId: request.fromUserId, friendUserId: request.toUserId, group: "freunde" });
     friendGroupAssignments.push({ ownerUserId: request.toUserId, friendUserId: request.fromUserId, group: "freunde" });
+    ensureMutualWorkspaceMembership(request.fromUserId, request.toUserId);
   }
   return { ok: true as const, request };
 }
@@ -1659,6 +1673,9 @@ export function setFriendGroup(
     existing.group = group;
   } else {
     friendGroupAssignments.push({ ownerUserId, friendUserId, group });
+  }
+  if (group === "familie") {
+    ensureMutualWorkspaceMembership(ownerUserId, friendUserId);
   }
   return { ok: true as const };
 }
