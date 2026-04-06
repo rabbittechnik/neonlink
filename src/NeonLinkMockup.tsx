@@ -429,6 +429,7 @@ export default function NeonLinkMockup() {
   const prevActiveRoomForTypingRef = useRef<string | null>(null);
   const loadFriendDataRef = useRef<(userId: string) => Promise<void>>(async () => {});
   const playedNotificationIdsRef = useRef<Set<string>>(new Set());
+  const serverRoomsRef = useRef<WorkspaceChatRoom[]>([]);
 
   const sections = mockWorkspace.sections;
   const [sidebarUpcoming, setSidebarUpcoming] = useState<ApiCalendarEvent[]>([]);
@@ -786,6 +787,7 @@ export default function NeonLinkMockup() {
   activeRoomIdRef.current = activeRoomId;
   activeSectionRef.current = activeSection;
   activeWorkspaceIdRef.current = activeWorkspaceId;
+  serverRoomsRef.current = serverRooms;
 
   const mapServerMessageToChat = (message: ServerMessage): ChatMessage => {
     const uidRef = senderUserIdRef.current;
@@ -1795,10 +1797,23 @@ export default function NeonLinkMockup() {
     });
     socketRef.current = socket;
     socket.on("connect", () => {
+      console.log("[socket] connected, re-joining rooms");
       joinedWorkspaceRoomsRef.current.clear();
       setIsBackendOnline(true);
       const uid = currentUserRef.current?.id;
       if (uid) void loadFriendDataRef.current(uid);
+      // Re-join all known rooms immediately on (re)connect so messages and
+      // typing events are received without waiting for a state-driven effect.
+      for (const room of serverRoomsRef.current) {
+        socket.emit("room:join", room.id);
+        joinedWorkspaceRoomsRef.current.add(room.id);
+      }
+      // Also ensure the currently active room is joined.
+      const activeId = activeRoomIdRef.current;
+      if (activeId && !joinedWorkspaceRoomsRef.current.has(activeId)) {
+        socket.emit("room:join", activeId);
+        joinedWorkspaceRoomsRef.current.add(activeId);
+      }
     });
     socket.on("disconnect", () => {
       joinedWorkspaceRoomsRef.current.clear();
@@ -1918,6 +1933,22 @@ export default function NeonLinkMockup() {
       });
     }
     prevActiveRoomForTypingRef.current = activeRoomId || null;
+  }, [activeRoomId]);
+
+  // Ensure the active room is joined whenever the user switches rooms.
+  // This covers reconnect scenarios where the state-driven join effect may
+  // not re-fire because isBackendOnline / serverRooms didn't change.
+  useEffect(() => {
+    if (!activeRoomId) return;
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+    if (!joinedWorkspaceRoomsRef.current.has(activeRoomId)) {
+      console.log("[socket] joining active room on selection:", activeRoomId);
+      socket.emit("room:join", activeRoomId);
+      joinedWorkspaceRoomsRef.current.add(activeRoomId);
+    }
+    // Clear stale typing indicators from the previous room.
+    setTypingByUser({});
   }, [activeRoomId]);
 
   const openChatFromNews = (roomId: string, sectionId: SectionId) => {
