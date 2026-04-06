@@ -1665,10 +1665,12 @@ function emitChatMessageCreated(message: Message) {
   const room = findRoomById(roomId);
   /** Privat: nur user:${id} — Empfänger hat oft noch kein room:join; Gruppen/Global: klassischer Raum. */
   if (room?.chatType === "private" && room.participants.length) {
+    console.log(`[socket] chat:messageCreated (private) room=${roomId} sender=${message.senderUserId} recipients=${room.participants.join(",")}`);
     for (const pid of room.participants) {
       sio.to(`user:${pid}`).emit("chat:messageCreated", message);
     }
   } else {
+    console.log(`[socket] chat:messageCreated room=${roomId} sender=${message.senderUserId}`);
     sio.to(`room:${roomId}`).emit("chat:messageCreated", message);
   }
 }
@@ -1702,15 +1704,25 @@ io.use((socket, next) => {
 
 io.on("connection", (socket) => {
   const socketUserId = socket.data.userId as string;
+  console.log(`[socket] user connected: ${socketUserId} (${socket.id})`);
   socket.join(`user:${socketUserId}`);
+
+  socket.on("disconnect", (reason) => {
+    console.log(`[socket] user disconnected: ${socketUserId} (${socket.id}) reason=${reason}`);
+  });
 
   socket.on("room:join", (roomId: string) => {
     const room = findRoomById(roomId);
-    if (!room || !canUserAccessRoom(socketUserId, room)) return;
+    if (!room || !canUserAccessRoom(socketUserId, room)) {
+      console.log(`[socket] room:join denied for user=${socketUserId} room=${roomId}`);
+      return;
+    }
+    console.log(`[socket] room:join user=${socketUserId} room=${roomId}`);
     socket.join(`room:${roomId}`);
   });
 
   socket.on("room:leave", (roomId: string) => {
+    console.log(`[socket] room:leave user=${socketUserId} room=${roomId}`);
     socket.leave(`room:${roomId}`);
   });
 
@@ -1765,6 +1777,7 @@ io.on("connection", (socket) => {
       if (!payload.roomId || !payload.userId) return;
       const room = findRoomById(payload.roomId);
       if (!room || !canUserAccessRoom(socketUserId, room)) return;
+      console.log(`[socket] chat:typing user=${socketUserId} room=${payload.roomId} isTyping=${payload.isTyping}`);
       socket.to(`room:${payload.roomId}`).emit("chat:typing", payload);
     }
   );
