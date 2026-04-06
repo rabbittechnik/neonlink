@@ -1967,7 +1967,7 @@ export default function NeonLinkMockup() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#050816] text-white overflow-hidden">
+    <div className="min-h-screen w-full bg-[#050816] text-white overflow-x-auto overflow-y-hidden lg:overflow-hidden">
       <input
         ref={fileInputRef}
         type="file"
@@ -1979,11 +1979,11 @@ export default function NeonLinkMockup() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_28%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.16),transparent_22%),radial-gradient(circle_at_bottom_left,rgba(239,68,68,0.14),transparent_24%)]" />
       <div className="absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] [background-size:32px_32px]" />
 
-      <div className="relative z-10 flex h-screen min-h-0 min-w-0 max-w-[100vw] p-3 sm:p-4 gap-3 sm:gap-4 overflow-hidden">
+      <div className="relative z-10 flex h-screen min-h-0 min-w-max max-w-none w-full touch-pan-x overflow-x-auto overflow-y-hidden overscroll-x-contain lg:max-w-[100vw] lg:overflow-hidden lg:touch-auto p-3 sm:p-4 gap-3 sm:gap-4">
         <motion.aside
           initial={{ x: -20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
-          className="w-24 rounded-3xl border border-cyan-400/20 bg-white/5 backdrop-blur-xl shadow-2xl shadow-cyan-500/10 flex flex-col items-center py-4 gap-4"
+          className="w-24 shrink-0 rounded-3xl border border-cyan-400/20 bg-white/5 backdrop-blur-xl shadow-2xl shadow-cyan-500/10 flex flex-col items-center py-4 gap-4"
         >
           <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center font-bold text-lg shadow-lg shadow-cyan-500/30">
             NL
@@ -2041,7 +2041,7 @@ export default function NeonLinkMockup() {
         <motion.aside
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="w-80 min-w-0 max-w-[min(20rem,calc(100vw-7rem))] shrink-0 overflow-y-auto overflow-x-hidden rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-4 flex flex-col gap-4 shadow-2xl shadow-black/20"
+          className="w-80 min-w-0 max-w-[20rem] shrink-0 overflow-y-auto overflow-x-hidden rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-4 flex flex-col gap-4 shadow-2xl shadow-black/20"
         >
           <div className="flex items-center justify-between gap-2 min-w-0">
             <div className="min-w-0">
@@ -2349,7 +2349,7 @@ export default function NeonLinkMockup() {
           </div>
         </motion.aside>
 
-        <main className="flex-1 flex flex-col gap-4 min-w-0 min-h-0">
+        <main className="flex-1 flex flex-col gap-4 min-w-0 min-h-0 max-lg:min-w-[17.5rem] sm:max-lg:min-w-[20rem]">
           {appNotice ? (
             <div
               role="status"
