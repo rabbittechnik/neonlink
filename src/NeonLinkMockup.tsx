@@ -1967,7 +1967,7 @@ export default function NeonLinkMockup() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#050816] text-white overflow-x-auto overflow-y-hidden lg:overflow-hidden">
+    <div className="min-h-screen w-full bg-[#050816] text-white overflow-x-hidden lg:overflow-hidden">
       <input
         ref={fileInputRef}
         type="file"
@@ -1979,7 +1979,7 @@ export default function NeonLinkMockup() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_28%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.16),transparent_22%),radial-gradient(circle_at_bottom_left,rgba(239,68,68,0.14),transparent_24%)]" />
       <div className="absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] [background-size:32px_32px]" />
 
-      <div className="relative z-10 flex h-screen min-h-0 min-w-max max-w-none w-full touch-pan-x overflow-x-auto overflow-y-hidden overscroll-x-contain lg:max-w-[100vw] lg:overflow-hidden lg:touch-auto p-3 sm:p-4 gap-3 sm:gap-4">
+      <div className="relative z-10 flex h-screen min-h-0 w-full max-w-full lg:min-w-0 lg:max-w-[100vw] overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x lg:overflow-hidden lg:touch-auto p-3 sm:p-4 gap-3 sm:gap-4">
         <motion.aside
           initial={{ x: -20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
