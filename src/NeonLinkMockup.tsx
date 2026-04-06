@@ -73,6 +73,7 @@ import {
   type WorkspaceChatRoom,
 } from "@/utils/workspaceChats";
 import { pickSharedWorkspaceId } from "@/utils/workspacePick";
+import { playNotificationSound } from "@/utils/notificationSound";
 
 const iconBySection: Record<SectionId, React.ComponentType<{ className?: string }>> = {
   familie: Home,
@@ -427,6 +428,7 @@ export default function NeonLinkMockup() {
   const skipNextUnreadPersistRef = useRef(false);
   const prevActiveRoomForTypingRef = useRef<string | null>(null);
   const loadFriendDataRef = useRef<(userId: string) => Promise<void>>(async () => {});
+  const playedNotificationIdsRef = useRef<Set<string>>(new Set());
 
   const sections = mockWorkspace.sections;
   const [sidebarUpcoming, setSidebarUpcoming] = useState<ApiCalendarEvent[]>([]);
@@ -1817,6 +1819,14 @@ export default function NeonLinkMockup() {
           ...prev,
           [message.roomId]: (prev[message.roomId] ?? 0) + 1,
         }));
+      }
+      // Play notification sound for messages from other users, once per message
+      if (
+        message.senderUserId !== me &&
+        !playedNotificationIdsRef.current.has(message.id)
+      ) {
+        playedNotificationIdsRef.current.add(message.id);
+        playNotificationSound();
       }
       setChatMessages((prev) => {
         const exists = prev.some((entry) => entry.id === message.id);
