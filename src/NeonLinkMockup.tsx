@@ -1565,6 +1565,7 @@ export default function NeonLinkMockup() {
         const response = await authFetch(`/friends/requests/${friendCategoryCtx.requestId}/respond`, {
           method: "POST",
           body: JSON.stringify({
+            userId: currentUser.id,
             action: "accept",
             toCategoryKeys: keys,
           }),
@@ -1594,7 +1595,7 @@ export default function NeonLinkMockup() {
     try {
       const response = await authFetch(`/friends/requests/${requestId}/respond`, {
         method: "POST",
-        body: JSON.stringify({ action: "reject" }),
+        body: JSON.stringify({ userId: currentUser.id, action: "reject" }),
       });
       if (!response.ok) {
         const data = (await response.json().catch(() => ({}))) as { error?: string };
