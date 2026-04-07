@@ -340,7 +340,7 @@ const STATUS_PILL: Record<
   },
   offline: {
     label: "Offline",
-    className: "bg-white/10 text-white font-semibold border-white/15",
+    className: "bg-red-600/30 text-red-100 font-semibold border-red-400/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
   },
   on_call: {
     label: "Im Einsatz",
