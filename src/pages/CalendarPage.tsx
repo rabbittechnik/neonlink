@@ -97,6 +97,34 @@ function eventTouchesDay(ev: ApiCalendarEvent, d: Date): boolean {
   return es <= end && ee >= start;
 }
 
+function eventStartsOnDay(ev: ApiCalendarEvent, d: Date): boolean {
+  return dateKeyLocal(new Date(ev.startsAt)) === dateKeyLocal(d);
+}
+
+function formatEventTimeLabel(ev: ApiCalendarEvent): string {
+  if (ev.allDay) return "Ganztägig";
+  const start = new Date(ev.startsAt);
+  if (Number.isNaN(start.getTime())) return "";
+  const fmt = (x: Date) =>
+    x.toLocaleTimeString("de-DE", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  const startLabel = fmt(start);
+  if (!ev.endsAt) return startLabel;
+  const end = new Date(ev.endsAt);
+  if (Number.isNaN(end.getTime())) return startLabel;
+  const endLabel = fmt(end);
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const startDay = new Date(start);
+  startDay.setHours(0, 0, 0, 0);
+  const endDay = new Date(end);
+  endDay.setHours(0, 0, 0, 0);
+  const dayDiff = Math.max(0, Math.round((endDay.getTime() - startDay.getTime()) / msPerDay));
+  if (dayDiff === 0) return `${startLabel} - ${endLabel}`;
+  return `${startLabel} - ${endLabel} (+${dayDiff} Tag${dayDiff > 1 ? "e" : ""})`;
+}
+
 function assignColumn(
   ev: ApiCalendarEvent,
   slots: FamilyCalendarSlot[],
@@ -645,7 +673,9 @@ export default function CalendarPage() {
               <div className="space-y-4">
                 {days.map((d) => {
                   const key = dateKeyLocal(d);
-                  const dayEvents = eventsByDay.get(key) ?? [];
+                  const dayEvents = (eventsByDay.get(key) ?? []).filter((ev) =>
+                    isCalendarRangeKind(ev.kind) ? true : eventStartsOnDay(ev, d)
+                  );
                   if (dayEvents.length === 0) return null;
                   return (
                     <div key={key} className="rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -692,12 +722,7 @@ export default function CalendarPage() {
                                     </span>
                                   ) : null}
                                   {showRangeOwnerInList(ev) ? " · " : null}
-                                  {ev.allDay
-                                    ? "Ganztägig"
-                                    : new Date(ev.startsAt).toLocaleTimeString("de-DE", {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      })}
+                                  {formatEventTimeLabel(ev)}
                                   {ev.location ? ` · ${ev.location}` : ""}
                                   {ev.workspaceId !== workspaceId && ev.workspaceName
                                     ? ` · ${ev.workspaceName}`

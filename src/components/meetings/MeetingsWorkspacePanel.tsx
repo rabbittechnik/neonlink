@@ -48,6 +48,12 @@ function formatRange(startsAt: string, endsAt: string) {
   return `${d} · ${ta} – ${tb}`;
 }
 
+function roomVideoName(workspaceId: string, roomId: string): string {
+  return `NeonLink-Room-${workspaceId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12)}-${roomId
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .slice(0, 24)}`;
+}
+
 export function MeetingsWorkspacePanel({
   workspaceId,
   rooms,
@@ -78,10 +84,64 @@ export function MeetingsWorkspacePanel({
   const [renameDraft, setRenameDraft] = useState("");
   const [renameBusy, setRenameBusy] = useState(false);
   const [roomListError, setRoomListError] = useState<string | null>(null);
+  const [quickBusy, setQuickBusy] = useState(false);
+  const [quickInvite, setQuickInvite] = useState<Record<string, boolean>>({});
+  const [quickInviteError, setQuickInviteError] = useState<string | null>(null);
 
   const activeRoom = rooms.find((r) => r.id === activeRoomId) ?? null;
   const detail = meetings.find((m) => m.id === detailId) ?? null;
   const nowMs = Date.now();
+  const quickRoomName = activeRoomId ? roomVideoName(workspaceId, activeRoomId) : "";
+  const quickJoinLink = quickRoomName ? `https://meet.jit.si/${encodeURIComponent(quickRoomName)}` : "";
+
+  const copyQuickLink = async () => {
+    if (!quickJoinLink) return;
+    try {
+      await navigator.clipboard.writeText(quickJoinLink);
+      setQuickInviteError("Link kopiert.");
+    } catch {
+      setQuickInviteError("Link konnte nicht kopiert werden.");
+    }
+  };
+
+  const startRoomNow = () => {
+    if (!activeRoom) return;
+    setJitsiMeeting(null);
+    setVideoOpen(true);
+  };
+
+  const sendQuickInvites = async () => {
+    if (!activeRoomId || !activeRoom) return;
+    const participantUserIds = Object.entries(quickInvite)
+      .filter(([, on]) => on)
+      .map(([id]) => id);
+    if (participantUserIds.length === 0) {
+      setQuickInviteError("Bitte mindestens einen Benutzer auswählen.");
+      return;
+    }
+    const start = new Date();
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+    setQuickBusy(true);
+    setQuickInviteError(null);
+    try {
+      await onCreateMeeting({
+        meetingRoomId: activeRoomId,
+        title: `Sofort-Meeting: ${activeRoom.name}`,
+        description: `Direkt beitreten: ${quickJoinLink}`,
+        participantUserIds,
+        startsAt: start.toISOString(),
+        endsAt: end.toISOString(),
+        sectionId: activeSection,
+      });
+      setQuickInvite({});
+      onRefreshMeetings();
+      setQuickInviteError("Einladungen gesendet.");
+    } catch (e) {
+      setQuickInviteError(e instanceof Error ? e.message : "Einladungen fehlgeschlagen.");
+    } finally {
+      setQuickBusy(false);
+    }
+  };
 
   const createRoom = async () => {
     setRoomBusy(true);
@@ -274,11 +334,66 @@ export function MeetingsWorkspacePanel({
             </Button>
           </CardHeader>
           <CardContent className="flex-1 min-h-0 overflow-y-auto pt-4 space-y-3">
+            {activeRoomId ? (
+              <div className="rounded-2xl border border-cyan-400/30 bg-cyan-500/10 p-4 space-y-3">
+                <div className="font-medium text-cyan-100">Video-Raum aktivieren</div>
+                <p className="text-xs text-white/80">
+                  Öffne <strong>{activeRoom?.name}</strong> sofort als Videokonferenzraum mit Kamera und
+                  Bildschirmfreigabe.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    onClick={startRoomNow}
+                    className="rounded-xl bg-cyan-500/25 border border-cyan-400/35 text-cyan-100"
+                  >
+                    <Video className="h-4 w-4 mr-1.5" />
+                    Raum jetzt eröffnen
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => void copyQuickLink()}
+                    className="rounded-xl border border-white/20 text-white hover:bg-white/10"
+                  >
+                    Link kopieren
+                  </Button>
+                </div>
+                <div>
+                  <div className="text-[11px] text-white/70 mb-1">Benutzer direkt einladen</div>
+                  <div className="max-h-28 overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2 space-y-1">
+                    {members
+                      .filter((m) => m.id !== currentUserId)
+                      .map((m) => (
+                        <label key={m.id} className="flex items-center gap-2 text-xs text-white/90">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(quickInvite[m.id])}
+                            onChange={(e) =>
+                              setQuickInvite((prev) => ({ ...prev, [m.id]: e.target.checked }))
+                            }
+                          />
+                          {m.displayName}
+                        </label>
+                      ))}
+                  </div>
+                  <Button
+                    type="button"
+                    disabled={quickBusy}
+                    onClick={() => void sendQuickInvites()}
+                    className="mt-2 rounded-xl bg-violet-500/20 border border-violet-300/30 text-violet-100 text-xs"
+                  >
+                    {quickBusy ? "Sende Einladungen..." : "Einladungen an Benutzer senden"}
+                  </Button>
+                  {quickInviteError ? <p className="mt-1 text-xs text-white/80">{quickInviteError}</p> : null}
+                </div>
+              </div>
+            ) : null}
             {!activeRoomId ? (
               <p className="text-sm text-white/90 text-center py-12">Links einen Meetingraum auswählen.</p>
             ) : meetings.length === 0 ? (
-              <p className="text-sm text-white/90 text-center py-12">
-                Noch keine Meetings, an denen du teilnimmst. Plane eines mit „Meeting planen“.
+              <p className="text-sm text-white/80 text-center py-6">
+                Noch keine Meetings, an denen du teilnimmst. Du kannst den Raum sofort eröffnen oder ein Meeting planen.
               </p>
             ) : (
               meetings.map((m) => {
@@ -406,6 +521,12 @@ export function MeetingsWorkspacePanel({
         }}
         roomName={`NeonLink-${workspaceId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12)}-${(jitsiMeeting?.id ?? "meet").replace(/[^a-zA-Z0-9]/g, "").slice(0, 24)}`}
         title={jitsiMeeting ? `Video: ${jitsiMeeting.title}` : "Video-Meeting"}
+      />
+      <VideoMeetingModal
+        open={videoOpen && !jitsiMeeting && Boolean(activeRoomId)}
+        onClose={() => setVideoOpen(false)}
+        roomName={quickRoomName}
+        title={activeRoom ? `Live: ${activeRoom.name}` : "Video-Raum"}
       />
 
       <CreateMeetingModal

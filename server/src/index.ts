@@ -129,6 +129,23 @@ dedupeWorkspaceMembers();
 let socketIo: Server | undefined;
 const connectedSocketsByUser = new Map<string, number>();
 
+/**
+ * Presence is derived from active browser sockets only:
+ * online = at least one connected socket, otherwise offline.
+ */
+function reconcilePresenceFromSockets() {
+  for (const u of users) {
+    const count = connectedSocketsByUser.get(u.id) ?? 0;
+    const next = count > 0 ? "online" : "offline";
+    if (u.status !== next) {
+      void setUserPresenceStatus(u.id, next);
+    }
+  }
+}
+
+// On server start, always reset to "offline" until sockets connect.
+reconcilePresenceFromSockets();
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "30mb" }));
@@ -1726,8 +1743,7 @@ io.on("connection", (socket) => {
   {
     const next = (connectedSocketsByUser.get(socketUserId) ?? 0) + 1;
     connectedSocketsByUser.set(socketUserId, next);
-    // Real online status while at least one socket is connected.
-    void setUserPresenceStatus(socketUserId, "online");
+    reconcilePresenceFromSockets();
   }
 
   socket.on("disconnect", (reason) => {
@@ -1735,10 +1751,10 @@ io.on("connection", (socket) => {
     const next = Math.max(0, (connectedSocketsByUser.get(socketUserId) ?? 1) - 1);
     if (next === 0) {
       connectedSocketsByUser.delete(socketUserId);
-      void setUserPresenceStatus(socketUserId, "offline");
     } else {
       connectedSocketsByUser.set(socketUserId, next);
     }
+    reconcilePresenceFromSockets();
   });
 
   socket.on("room:join", (roomId: string) => {
@@ -1812,6 +1828,9 @@ io.on("connection", (socket) => {
     }
   );
 });
+
+// Safety net for stale states (e.g. abrupt app/browser shutdowns).
+setInterval(reconcilePresenceFromSockets, 15_000);
 
 const port = Number(process.env.PORT ?? 4000);
 
