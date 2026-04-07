@@ -1879,7 +1879,24 @@ export function createFriendRequest(
       ((entry.fromUserId === fromUserId && entry.toUserId === toUserId) ||
         (entry.fromUserId === toUserId && entry.toUserId === fromUserId))
   );
-  if (existingPending) return { ok: false as const, reason: "request_pending" };
+  if (existingPending) {
+    // If the other side already sent a pending request, auto-accept to avoid deadlocks.
+    if (existingPending.fromUserId === toUserId && existingPending.toUserId === fromUserId) {
+      existingPending.status = "accepted";
+      if (!isFriend(fromUserId, toUserId)) {
+        friendships.push({ userAId: existingPending.fromUserId, userBId: existingPending.toUserId, createdAt: now() });
+      }
+      const fromCats =
+        normalizeFriendshipCategories(existingPending.fromCategoryKeys) ?? (["freunde"] as FriendshipCategoryKey[]);
+      const toCats = normalizeFriendshipCategories(fromCategoryKeys) ?? (["freunde"] as FriendshipCategoryKey[]);
+      applyFriendGroupRows(existingPending.fromUserId, existingPending.toUserId, fromCats);
+      applyFriendGroupRows(fromUserId, toUserId, toCats);
+      ensureMutualWorkspaceMembership(fromUserId, toUserId);
+      return { ok: true as const, request: existingPending, autoAccepted: true as const };
+    }
+    // Same-direction duplicate: treat as success so UI does not feel "stuck".
+    return { ok: true as const, request: existingPending, alreadyPending: true as const };
+  }
 
   const cats = normalizeFriendshipCategories(fromCategoryKeys) ?? ["freunde"];
   const request = {

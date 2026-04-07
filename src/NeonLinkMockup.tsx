@@ -1560,7 +1560,18 @@ export default function NeonLinkMockup() {
           const data = (await response.json()) as { error?: string };
           throw new Error(data.error ?? "request_failed");
         }
-        setFriendInfo("Freundesanfrage gesendet.");
+        const payload = (await response.json().catch(() => ({}))) as {
+          autoAccepted?: boolean;
+          alreadyPending?: boolean;
+        };
+        await loadFriendData(currentUser.id);
+        if (payload.autoAccepted) {
+          setFriendInfo("Es gab bereits eine Gegenanfrage — ihr seid jetzt automatisch verbunden.");
+        } else if (payload.alreadyPending) {
+          setFriendInfo("Anfrage ist bereits offen.");
+        } else {
+          setFriendInfo("Freundesanfrage gesendet.");
+        }
       } else {
         const response = await authFetch(`/friends/requests/${friendCategoryCtx.requestId}/respond`, {
           method: "POST",
