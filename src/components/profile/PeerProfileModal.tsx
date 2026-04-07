@@ -193,21 +193,6 @@ export function PeerProfileModal({ userId, onClose }: Props) {
                         </div>
                       ) : null}
 
-                      {data.statusBySection && Object.keys(data.statusBySection).length > 0 ? (
-                        <div>
-                          <div className="text-[10px] font-semibold uppercase tracking-wider text-white/90 mb-1.5">
-                            Status nach Bereich
-                          </div>
-                          <ul className="space-y-1 text-xs text-white">
-                            {Object.entries(data.statusBySection).map(([k, v]) => (
-                              <li key={k} className="flex justify-between gap-2 border-b border-white/5 pb-1">
-                                <span className="text-white/90 truncate">{k}</span>
-                                <span>{statusLabel(String(v))}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null}
                     </>
                   )}
 

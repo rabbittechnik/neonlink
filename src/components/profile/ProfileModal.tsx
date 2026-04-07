@@ -18,18 +18,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import type { ContactVisibility, PresenceKind } from "@/auth/AuthContext";
+import type { ContactVisibility } from "@/auth/AuthContext";
 import { useAuth } from "@/auth/AuthContext";
 import { fileToAvatarDataUrl } from "@/utils/fileToAvatarDataUrl";
 import { maskPhoneDigits } from "@/utils/maskPhone";
-
-const STATUS_OPTIONS: { value: PresenceKind; label: string }[] = [
-  { value: "online", label: "Online" },
-  { value: "away", label: "Abwesend" },
-  { value: "busy", label: "Beschäftigt" },
-  { value: "offline", label: "Offline" },
-  { value: "on_call", label: "Im Einsatz" },
-];
 
 const CHAT_TEXT_PRESETS: { hex: string; label: string }[] = [
   { hex: "#e2e8f0", label: "Hell" },
@@ -69,8 +61,6 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
-  const [globalStatus, setGlobalStatus] = useState<PresenceKind>("online");
-  const [sectionStatus, setSectionStatus] = useState<PresenceKind>("online");
   const [contactEmail, setContactEmail] = useState("");
   const [emailVis, setEmailVis] = useState<ContactVisibility>("workspace");
   const [phoneVis, setPhoneVis] = useState<ContactVisibility>("workspace");
@@ -94,8 +84,6 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
     setDisplayName(user.displayName);
     setBio(user.bio);
     setStatusMessage(user.statusMessage);
-    setGlobalStatus(user.status);
-    setSectionStatus(user.statusBySection[activeSectionId] ?? user.status);
     setContactEmail(user.contactEmail);
     setEmailVis(user.emailVisibility);
     setPhoneVis(user.phoneVisibility);
@@ -116,13 +104,10 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
     setError(null);
     setHint(null);
     try {
-      const nextSectionMap = { ...user.statusBySection, [activeSectionId]: sectionStatus };
       await updateProfile({
         displayName: displayName.trim(),
         bio: bio.trim(),
         statusMessage: statusMessage.trim(),
-        status: globalStatus,
-        statusBySection: nextSectionMap,
         contactEmail: contactEmail.trim(),
         emailVisibility: emailVis,
         phoneVisibility: phoneVis,
@@ -389,44 +374,6 @@ export function ProfileModal({ open, onClose, activeSectionId, activeSectionLabe
                   className="w-full rounded-xl bg-white/5 border border-white/12 px-3 py-2 text-sm text-white placeholder:text-white/55 resize-none"
                   placeholder="Erzähl etwas über dich…"
                 />
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 space-y-3">
-                <div className="text-xs font-semibold uppercase tracking-wider text-white/90">Status</div>
-                <label className="block text-xs text-white/90">Global (Standard)</label>
-                <select
-                  value={globalStatus}
-                  onChange={(e) => setGlobalStatus(e.target.value as PresenceKind)}
-                  className="w-full rounded-xl bg-white/5 border border-white/12 px-3 py-2 text-sm text-white"
-                >
-                  {STATUS_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value} className="bg-[#0a1020]">
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-                <label className="block text-xs text-white/90 flex items-center gap-2">
-                  In Bereich „{activeSectionLabel}“
-                  {sectionStatus === "on_call" ? (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-red-500/25 text-red-200 animate-pulse">
-                      Einsatz
-                    </span>
-                  ) : null}
-                </label>
-                <select
-                  value={sectionStatus}
-                  onChange={(e) => setSectionStatus(e.target.value as PresenceKind)}
-                  className="w-full rounded-xl bg-white/5 border border-white/12 px-3 py-2 text-sm text-white"
-                >
-                  {STATUS_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value} className="bg-[#0a1020]">
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[11px] text-white/90">
-                  Überschreibt den globalen Status nur in diesem Bereich (z. B. Feuerwehr „Im Einsatz“).
-                </p>
               </div>
 
               <div className="rounded-2xl border border-violet-400/20 bg-violet-500/[0.07] p-4 space-y-4">
