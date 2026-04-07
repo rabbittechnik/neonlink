@@ -9,6 +9,7 @@ import {
   Clock3,
   Download,
   File as FileIcon,
+  FileBadge2,
   FileText,
   Flame,
   FolderKanban,
@@ -2334,6 +2335,15 @@ export default function NeonLinkMockup() {
                           label: "Arbeitsplan",
                           icon: ClipboardList,
                           path: "/arbeitsplan" as const,
+                        },
+                      ] as const)
+                    : []),
+                  ...(activeSection === "familie"
+                    ? ([
+                        {
+                          label: "Wichtige Unterlagen",
+                          icon: FileBadge2,
+                          path: "/wichtige-unterlagen" as const,
                         },
                       ] as const)
                     : []),

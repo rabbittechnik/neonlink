@@ -10,6 +10,7 @@ import WorkSchedulePage from "./pages/WorkSchedulePage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import ImportantDocumentsPage from "./pages/ImportantDocumentsPage";
 
 function LoginGate() {
   const { user, ready } = useAuth();
@@ -79,6 +80,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <WorkSchedulePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/wichtige-unterlagen"
+            element={
+              <ProtectedRoute>
+                <ImportantDocumentsPage />
               </ProtectedRoute>
             }
           />

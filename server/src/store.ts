@@ -2380,6 +2380,11 @@ export function patchFinanceHouseholdPlan(input: {
 // --- Verträge (Kategorien + mehrseitige Dokumente) ---
 
 export const CONTRACT_PRESET_CATEGORY_KEYS = new Set([
+  "geburtsurkunde",
+  "heiratsurkunde",
+  "meldebestaetigung",
+  "personalausweis",
+  "reisepass",
   "mietvertrag",
   "lohnabrechnung",
   "stromanbieter",
@@ -2387,6 +2392,10 @@ export const CONTRACT_PRESET_CATEGORY_KEYS = new Set([
   "home_internet",
   "kfz_versicherung",
   "krankenkasse",
+  "versicherungsschein",
+  "rentenunterlagen",
+  "steuer",
+  "schule_kita",
   "streaming",
   "bank",
   "nebenkosten",
