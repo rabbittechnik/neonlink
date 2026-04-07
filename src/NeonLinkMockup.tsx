@@ -1347,7 +1347,8 @@ export default function NeonLinkMockup() {
         return next;
       });
     } catch {
-      // Keep previous values.
+      // Avoid stale "ghost" requests when API refresh fails.
+      setIncomingFriendRequests([]);
     }
   };
 

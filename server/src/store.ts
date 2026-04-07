@@ -1635,6 +1635,22 @@ export function hasSharedWorkspace(userA: string, userB: string): boolean {
   return workspaceMembers.some((m) => m.userId === userB && aWs.has(m.workspaceId));
 }
 
+function hasSharedFamilieWorkspace(userA: string, userB: string): boolean {
+  const aWs = new Set(workspaceMembers.filter((m) => m.userId === userA).map((m) => m.workspaceId));
+  for (const m of workspaceMembers) {
+    if (m.userId !== userB) continue;
+    if (!aWs.has(m.workspaceId)) continue;
+    if (workspaceHasFamilieSection(m.workspaceId)) return true;
+  }
+  return false;
+}
+
+function extractSurnameLower(displayName: string): string | null {
+  const parts = displayName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return null;
+  return parts[parts.length - 1]!.toLowerCase();
+}
+
 /** Beide Nutzer in alle persönlichen Workspaces des anderen aufnehmen — gemeinsame Chats & Kalender. */
 export function ensureMutualWorkspaceMembership(userA: string, userB: string): void {
   if (userA === userB) return;
@@ -1957,7 +1973,16 @@ export function listFriends(userId: string) {
   return users
     .filter((user) => friendIds.includes(user.id))
     .map((user) => {
-      const groups = groupsByFriend.get(user.id) ?? ["freunde"];
+      const direct = groupsByFriend.get(user.id) ?? ["freunde"];
+      const reverseHasFamilie = friendGroupAssignments.some(
+        (e) => e.ownerUserId === user.id && e.friendUserId === userId && e.group === "familie"
+      );
+      const sameSurname =
+        extractSurnameLower(users.find((u) => u.id === userId)?.displayName ?? "") !== null &&
+        extractSurnameLower(users.find((u) => u.id === userId)?.displayName ?? "") ===
+          extractSurnameLower(user.displayName);
+      const autoFamilie = reverseHasFamilie || (sameSurname && hasSharedFamilieWorkspace(userId, user.id));
+      const groups = direct.includes("familie") || !autoFamilie ? direct : (["familie", ...direct] as FriendGroupAssignmentGroup[]);
       return {
         ...formatUserForPeerView(userId, user),
         groups,
