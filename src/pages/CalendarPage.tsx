@@ -485,12 +485,10 @@ export default function CalendarPage() {
         allDay: formAllDay,
         location: formLocation.trim(),
         visibilityUserIds: forceFamilyShare ? [] : vis,
-        participantUserIds: forceFamilyShare ? [] : participants,
+        participantUserIds: participants,
         familySlotId: familySlotId || null,
-        compactInFamilyCalendar:
-          formKind === "appointment" && formSection === "arbeit" ? formShiftCompact : false,
-        excludeFromUpcoming:
-          formKind === "appointment" && formSection === "arbeit" ? formShiftCompact : false,
+        compactInFamilyCalendar: formKind === "appointment" ? formShiftCompact : false,
+        excludeFromUpcoming: formKind === "appointment" ? formShiftCompact : false,
       };
       const res = editId
         ? await authFetch(`/calendar/events/${editId}`, {
@@ -1103,7 +1101,7 @@ export default function CalendarPage() {
                   ) : null}
                 </div>
               </div>
-              {formKind === "appointment" && formSection === "arbeit" ? (
+              {formKind === "appointment" ? (
                 <label className="flex items-center gap-2 text-sm cursor-pointer">
                   <input
                     type="checkbox"
@@ -1111,7 +1109,7 @@ export default function CalendarPage() {
                     onChange={(e) => setFormShiftCompact(e.target.checked)}
                     className="rounded"
                   />
-                  Als Arbeitsschicht markieren (kompakt im Familienkalender, nicht bei „Nächste Termine“)
+                  Als leichte Schicht anzeigen (kompakt im Familienkalender, nicht bei „Nächste Termine“)
                 </label>
               ) : null}
               <div className="flex flex-wrap gap-2 pt-2 items-center">

@@ -867,7 +867,6 @@ export function createCalendarEvent(input: {
     vis = workspaceMembers
       .filter((m) => m.workspaceId === input.workspaceId && m.userId !== input.creatorId)
       .map((m) => m.userId);
-    if (participants.length === 0) participants = [...vis];
   } else {
     vis = [...new Set(input.visibilityUserIds.filter((id) => id && id !== input.creatorId))];
     for (const uid of vis) {
@@ -987,9 +986,6 @@ export function updateCalendarEvent(
       .filter((m) => m.workspaceId === e.workspaceId && m.userId !== e.createdByUserId)
       .map((m) => m.userId);
     e.visibilityUserIds = all;
-    if (!e.participantUserIds || e.participantUserIds.length === 0) {
-      e.participantUserIds = [...all];
-    }
   }
   if (patch.startsAt !== undefined) e.startsAt = patch.startsAt;
   if (patch.endsAt !== undefined) e.endsAt = patch.endsAt;
