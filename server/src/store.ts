@@ -1900,7 +1900,8 @@ export function respondToFriendRequest(
   const request = friendRequests.find((entry) => entry.id === requestId);
   if (!request) return { ok: false as const, reason: "request_not_found" };
   if (request.toUserId !== userId) return { ok: false as const, reason: "not_allowed" };
-  if (request.status !== "pending") return { ok: false as const, reason: "already_processed" };
+  // Idempotent behavior for flaky/mobile taps: treat already-processed as success.
+  if (request.status !== "pending") return { ok: true as const, request };
 
   request.status = action === "accept" ? "accepted" : "rejected";
   if (action === "accept") {
@@ -1920,7 +1921,9 @@ function applyFriendGroupRows(
   friendUserId: string,
   groups: FriendGroupAssignmentGroup[]
 ): void {
-  const g = [...new Set(groups)];
+  const gSet = new Set(groups);
+  const order: FriendGroupAssignmentGroup[] = ["familie", "freunde", "arbeit", "feuerwehr"];
+  const g = order.filter((k) => gSet.has(k));
   const kept = friendGroupAssignments.filter(
     (e) => !(e.ownerUserId === ownerUserId && e.friendUserId === friendUserId)
   );

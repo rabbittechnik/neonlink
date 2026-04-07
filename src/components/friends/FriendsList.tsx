@@ -96,8 +96,10 @@ export function FriendsList({
               const nextFlow = new Set(flowSelected);
               if (nextFlow.has(key)) nextFlow.delete(key);
               else nextFlow.add(key);
+              if (activeSection === "familie") nextFlow.add("familie");
               if (nextFlow.size === 0) nextFlow.add("freunde");
-              const merged: FriendGroup[] = [...legacy, ...(Array.from(nextFlow) as FriendGroup[])];
+              const orderedFlow = FRIENDSHIP_FLOW_KEYS.filter((k) => nextFlow.has(k)) as FriendGroup[];
+              const merged: FriendGroup[] = [...legacy, ...orderedFlow];
               onSetFriendGroups(friend.id, merged);
             };
             return (

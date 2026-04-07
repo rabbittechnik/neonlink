@@ -1572,7 +1572,6 @@ export default function NeonLinkMockup() {
           const data = (await response.json().catch(() => ({}))) as { error?: string };
           throw new Error(data.error ?? "response_failed");
         }
-        await loadFriendData(currentUser.id);
         setFriendInfo("Anfrage angenommen — Kategorien gespeichert.");
       }
     } catch (error) {
@@ -1583,6 +1582,7 @@ export default function NeonLinkMockup() {
           : `Annehmen fehlgeschlagen: ${message}`
       );
     } finally {
+      await loadFriendData(currentUser.id);
       setFriendCategoryOpen(false);
       setFriendCategoryCtx(null);
     }
@@ -1599,20 +1599,25 @@ export default function NeonLinkMockup() {
         const data = (await response.json().catch(() => ({}))) as { error?: string };
         throw new Error(data.error ?? "response_failed");
       }
-      await loadFriendData(currentUser.id);
       setFriendInfo("Anfrage abgelehnt.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "fehlgeschlagen";
       setFriendInfo(`Antwort auf Anfrage fehlgeschlagen: ${message}`);
+    } finally {
+      await loadFriendData(currentUser.id);
     }
   };
 
   const setFriendGroupsForFriend = async (friendUserId: string, groups: FriendGroup[]) => {
     if (!currentUser) return;
     try {
+      const nextGroups =
+        activeSection === "familie" && !groups.includes("familie")
+          ? (["familie", ...groups] as FriendGroup[])
+          : groups;
       const response = await authFetch(`/friends/groups`, {
         method: "POST",
-        body: JSON.stringify({ ownerUserId: currentUser.id, friendUserId, groups }),
+        body: JSON.stringify({ ownerUserId: currentUser.id, friendUserId, groups: nextGroups }),
       });
       if (!response.ok) throw new Error("group_update_failed");
       await loadFriendData(currentUser.id);

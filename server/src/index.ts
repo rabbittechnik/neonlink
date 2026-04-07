@@ -127,6 +127,7 @@ dedupeWorkspaceMembers();
 
 /** gesetzt sobald Socket.IO steht — für HTTP-Handler (z. B. Freundschaftsanfragen live pushen) */
 let socketIo: Server | undefined;
+const connectedSocketsByUser = new Map<string, number>();
 
 const app = express();
 app.use(cors());
@@ -408,6 +409,10 @@ app.delete("/contacts/:id", requireAuth, (req, res) => {
 app.post("/auth/logout", requireAuth, (req, res) => {
   const token = bearerToken(req);
   if (token) deleteSession(token);
+  // Security-first: end all live sockets for this user on explicit logout.
+  socketIo?.in(`user:${req.authUserId!}`).disconnectSockets(true);
+  connectedSocketsByUser.delete(req.authUserId!);
+  void setUserPresenceStatus(req.authUserId!, "offline");
   return res.json({ ok: true });
 });
 
@@ -1669,7 +1674,6 @@ const io = new Server(httpServer, {
   cors: { origin: "*" },
 });
 socketIo = io;
-const connectedSocketsByUser = new Map<string, number>();
 
 function emitChatMessageCreated(message: Message) {
   const sio = socketIo;
