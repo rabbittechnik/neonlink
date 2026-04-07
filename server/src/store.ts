@@ -857,12 +857,17 @@ export function createCalendarEvent(input: {
   // For "familie" section events, automatically share with all workspace members so
   // everyone sees each other's calendar entries without manual visibility setup.
   let vis: string[];
-  let participants: string[];
+  let participants = [...new Set((input.participantUserIds ?? []).filter((id) => id && id !== input.creatorId))];
+  for (const uid of participants) {
+    if (!isWorkspaceMember(uid, input.workspaceId)) {
+      return { ok: false, reason: "participant_invalid" };
+    }
+  }
   if (input.sectionId === "familie") {
     vis = workspaceMembers
       .filter((m) => m.workspaceId === input.workspaceId && m.userId !== input.creatorId)
       .map((m) => m.userId);
-    participants = [...vis];
+    if (participants.length === 0) participants = [...vis];
   } else {
     vis = [...new Set(input.visibilityUserIds.filter((id) => id && id !== input.creatorId))];
     for (const uid of vis) {
@@ -870,12 +875,7 @@ export function createCalendarEvent(input: {
         return { ok: false, reason: "visibility_invalid" };
       }
     }
-    participants = [...new Set((input.participantUserIds ?? vis).filter((id) => id && id !== input.creatorId))];
-    for (const uid of participants) {
-      if (!isWorkspaceMember(uid, input.workspaceId)) {
-        return { ok: false, reason: "participant_invalid" };
-      }
-    }
+    if (participants.length === 0) participants = [...vis];
   }
   let title = input.title.trim().slice(0, 200);
   if (input.kind === "vacation") {
@@ -987,7 +987,9 @@ export function updateCalendarEvent(
       .filter((m) => m.workspaceId === e.workspaceId && m.userId !== e.createdByUserId)
       .map((m) => m.userId);
     e.visibilityUserIds = all;
-    e.participantUserIds = [...all];
+    if (!e.participantUserIds || e.participantUserIds.length === 0) {
+      e.participantUserIds = [...all];
+    }
   }
   if (patch.startsAt !== undefined) e.startsAt = patch.startsAt;
   if (patch.endsAt !== undefined) e.endsAt = patch.endsAt;

@@ -436,7 +436,7 @@ export default function CalendarPage() {
     );
     setFormSlotId(sid);
     const v: Record<string, boolean> = {};
-    ev.visibilityUserIds.forEach((id) => {
+    (ev.participantUserIds ?? ev.visibilityUserIds).forEach((id) => {
       v[id] = true;
     });
     setFormVis(v);
@@ -1064,32 +1064,32 @@ export default function CalendarPage() {
               </div>
               {formSection === "familie" ? (
                 <p className="text-xs text-cyan-200/80 border border-cyan-400/20 rounded-lg px-2 py-1.5">
-                  Bereich Familie: alle Familienmitglieder im Workspace sehen diesen Eintrag automatisch.
+                  Familie: Sichtbarkeit ist automatisch für alle Mitglieder aktiv. Die Auswahl unten ist nur
+                  „Wer ist mit dabei?“.
                 </p>
-              ) : (
-                <div>
-                  <label className="text-xs text-white/55">Wer ist mit dabei? (Workspace-Mitglieder)</label>
-                  <div className="mt-2 space-y-2 max-h-32 overflow-y-auto">
-                    {members
-                      .filter((m) => m.userId !== mine)
-                      .map((m) => (
-                        <label key={m.userId} className="flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(formVis[m.userId])}
-                            onChange={(e) =>
-                              setFormVis((p) => ({ ...p, [m.userId]: e.target.checked }))
-                            }
-                          />
-                          {m.displayName}
-                        </label>
-                      ))}
-                    {members.filter((m) => m.userId !== mine).length === 0 ? (
-                      <span className="text-xs text-white/45">Keine weiteren Mitglieder.</span>
-                    ) : null}
-                  </div>
+              ) : null}
+              <div>
+                <label className="text-xs text-white/55">Wer ist mit dabei? (Workspace-Mitglieder)</label>
+                <div className="mt-2 space-y-2 max-h-32 overflow-y-auto">
+                  {members
+                    .filter((m) => m.userId !== mine)
+                    .map((m) => (
+                      <label key={m.userId} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(formVis[m.userId])}
+                          onChange={(e) =>
+                            setFormVis((p) => ({ ...p, [m.userId]: e.target.checked }))
+                          }
+                        />
+                        {m.displayName}
+                      </label>
+                    ))}
+                  {members.filter((m) => m.userId !== mine).length === 0 ? (
+                    <span className="text-xs text-white/45">Keine weiteren Mitglieder.</span>
+                  ) : null}
                 </div>
-              )}
+              </div>
               {formKind === "appointment" && formSection === "arbeit" ? (
                 <label className="flex items-center gap-2 text-sm cursor-pointer">
                   <input
