@@ -770,7 +770,10 @@ app.post("/workspaces/:wsId/calendar/events", requireAuth, (req, res) => {
     allDay?: boolean;
     location?: string;
     visibilityUserIds?: string[];
+    participantUserIds?: string[];
     familySlotId?: string | null;
+    compactInFamilyCalendar?: boolean;
+    excludeFromUpcoming?: boolean;
   };
   if (!body.sectionId || !body.startsAt) {
     return res.status(400).json({ error: "section_starts_required" });
@@ -788,7 +791,10 @@ app.post("/workspaces/:wsId/calendar/events", requireAuth, (req, res) => {
     allDay: Boolean(body.allDay),
     location: body.location ?? "",
     visibilityUserIds: Array.isArray(body.visibilityUserIds) ? body.visibilityUserIds : [],
+    participantUserIds: Array.isArray(body.participantUserIds) ? body.participantUserIds : [],
     familySlotId: body.familySlotId ?? null,
+    compactInFamilyCalendar: Boolean(body.compactInFamilyCalendar),
+    excludeFromUpcoming: Boolean(body.excludeFromUpcoming),
   });
   if (!result.ok) return res.status(400).json({ error: result.reason });
   return res.status(201).json(result.event);
@@ -804,7 +810,10 @@ app.patch("/calendar/events/:id", requireAuth, (req, res) => {
     allDay?: boolean;
     location?: string;
     visibilityUserIds?: string[];
+    participantUserIds?: string[];
     familySlotId?: string | null;
+    compactInFamilyCalendar?: boolean;
+    excludeFromUpcoming?: boolean;
   };
   const patch: Parameters<typeof updateCalendarEvent>[2] = {};
   if (body.sectionId !== undefined) patch.sectionId = body.sectionId;
@@ -814,7 +823,10 @@ app.patch("/calendar/events/:id", requireAuth, (req, res) => {
   if (body.allDay !== undefined) patch.allDay = body.allDay;
   if (body.location !== undefined) patch.location = body.location;
   if (body.visibilityUserIds !== undefined) patch.visibilityUserIds = body.visibilityUserIds;
+  if (body.participantUserIds !== undefined) patch.participantUserIds = body.participantUserIds;
   if (body.familySlotId !== undefined) patch.familySlotId = body.familySlotId;
+  if (body.compactInFamilyCalendar !== undefined) patch.compactInFamilyCalendar = body.compactInFamilyCalendar;
+  if (body.excludeFromUpcoming !== undefined) patch.excludeFromUpcoming = body.excludeFromUpcoming;
   if (body.kind !== undefined) {
     patch.kind =
       body.kind === "vacation" ? "vacation" : body.kind === "ferien" ? "ferien" : "appointment";

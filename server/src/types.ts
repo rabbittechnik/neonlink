@@ -133,6 +133,12 @@ export type CalendarEvent = {
   meetingId: string | null;
   meetingInvitees: string[];
   meetingRoomId: string | null;
+  /** Ausgewählte Mit-Beteiligte (zusätzlich zum Ersteller; bei Familie = alle Mitglieder). */
+  participantUserIds?: string[];
+  /** Kompaktanzeige im Familienraster (z. B. Arbeitsschicht, blockiert keine große Kachel). */
+  compactInFamilyCalendar?: boolean;
+  /** Nicht in "Nächste Termine" aufnehmen (z. B. Arbeitsschichten). */
+  excludeFromUpcoming?: boolean;
 };
 
 /** Workspace-gebundene Meetingräume (nicht Chat-Räume). */

@@ -7,6 +7,7 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Clock3,
   Flame,
   FolderKanban,
   GraduationCap,
@@ -219,6 +220,7 @@ export default function CalendarPage() {
   const [formLocation, setFormLocation] = useState("");
   const [formSlotId, setFormSlotId] = useState<string>("");
   const [formVis, setFormVis] = useState<Record<string, boolean>>({});
+  const [formShiftCompact, setFormShiftCompact] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   /** Alte Slot-ID, die nach Personen-Änderung noch nicht in slots[] vorkommt (verhindert Zurückspringen auf Gemeinsam). */
   const [formLegacySlot, setFormLegacySlot] = useState<{ id: string; label: string } | null>(null);
@@ -403,6 +405,7 @@ export default function CalendarPage() {
     const ownSlot = slots.find((s) => s.ownerUserId === mine && !slotLabelIsGemeinsam(s.label));
     setFormSlotId(ownSlot?.id ?? FAMILY_CALENDAR_SELF_SLOT_ID);
     setFormVis({});
+    setFormShiftCompact(false);
     setFormLegacySlot(null);
     setModalOpen(true);
   };
@@ -437,6 +440,7 @@ export default function CalendarPage() {
       v[id] = true;
     });
     setFormVis(v);
+    setFormShiftCompact(Boolean(ev.compactInFamilyCalendar || ev.excludeFromUpcoming));
     setModalOpen(true);
   };
 
@@ -456,7 +460,9 @@ export default function CalendarPage() {
       const vis = Object.entries(formVis)
         .filter(([, on]) => on)
         .map(([id]) => id);
+      const participants = [...vis];
       const familySlotId = formSlotId || null;
+      const forceFamilyShare = formSection === "familie";
       const body = {
         sectionId: formSection,
         kind: formKind,
@@ -465,8 +471,13 @@ export default function CalendarPage() {
         endsAt,
         allDay: formAllDay,
         location: formLocation.trim(),
-        visibilityUserIds: vis,
+        visibilityUserIds: forceFamilyShare ? [] : vis,
+        participantUserIds: forceFamilyShare ? [] : participants,
         familySlotId: familySlotId || null,
+        compactInFamilyCalendar:
+          formKind === "appointment" && formSection === "arbeit" ? formShiftCompact : false,
+        excludeFromUpcoming:
+          formKind === "appointment" && formSection === "arbeit" ? formShiftCompact : false,
       };
       const res = editId
         ? await authFetch(`/calendar/events/${editId}`, {
@@ -800,13 +811,15 @@ export default function CalendarPage() {
                                 eventTouchesDay(ev, d) &&
                                 assignColumn(ev, slots, members) === col.id
                             );
+                            const compactCell = cell.filter((ev) => ev.compactInFamilyCalendar);
+                            const normalCell = cell.filter((ev) => !ev.compactInFamilyCalendar);
                             return (
                               <div
                                 key={key}
                                 className="h-[3.5rem] shrink-0 border-b border-white/5 relative pointer-events-none"
                               >
                                 <div className="absolute inset-0 p-1 flex flex-col gap-1 z-20 pointer-events-auto">
-                                  {cell.map((ev) => {
+                                  {normalCell.map((ev) => {
                                     const meta =
                                       CALENDAR_SECTION_META[ev.sectionId] ?? CALENDAR_SECTION_META.familie;
                                     const Icon = SECTION_ICONS[ev.sectionId] ?? Home;
@@ -841,6 +854,12 @@ export default function CalendarPage() {
                                       </div>
                                     );
                                   })}
+                                  {compactCell.length > 0 ? (
+                                    <div className="mt-auto inline-flex items-center gap-1 self-start rounded-md border border-slate-300/25 bg-slate-800/65 px-1.5 py-0.5 text-[10px] text-slate-100">
+                                      <Clock3 className="h-3 w-3" />
+                                      {compactCell.length} Schicht{compactCell.length > 1 ? "en" : ""}
+                                    </div>
+                                  ) : null}
                                 </div>
                               </div>
                             );
@@ -1043,28 +1062,45 @@ export default function CalendarPage() {
                   beitreten.
                 </p>
               </div>
-              <div>
-                <label className="text-xs text-white/55">Auch anzeigen bei … (Workspace-Mitglieder)</label>
-                <div className="mt-2 space-y-2 max-h-32 overflow-y-auto">
-                  {members
-                    .filter((m) => m.userId !== mine)
-                    .map((m) => (
-                      <label key={m.userId} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(formVis[m.userId])}
-                          onChange={(e) =>
-                            setFormVis((p) => ({ ...p, [m.userId]: e.target.checked }))
-                          }
-                        />
-                        {m.displayName}
-                      </label>
-                    ))}
-                  {members.filter((m) => m.userId !== mine).length === 0 ? (
-                    <span className="text-xs text-white/45">Keine weiteren Mitglieder.</span>
-                  ) : null}
+              {formSection === "familie" ? (
+                <p className="text-xs text-cyan-200/80 border border-cyan-400/20 rounded-lg px-2 py-1.5">
+                  Bereich Familie: alle Familienmitglieder im Workspace sehen diesen Eintrag automatisch.
+                </p>
+              ) : (
+                <div>
+                  <label className="text-xs text-white/55">Wer ist mit dabei? (Workspace-Mitglieder)</label>
+                  <div className="mt-2 space-y-2 max-h-32 overflow-y-auto">
+                    {members
+                      .filter((m) => m.userId !== mine)
+                      .map((m) => (
+                        <label key={m.userId} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(formVis[m.userId])}
+                            onChange={(e) =>
+                              setFormVis((p) => ({ ...p, [m.userId]: e.target.checked }))
+                            }
+                          />
+                          {m.displayName}
+                        </label>
+                      ))}
+                    {members.filter((m) => m.userId !== mine).length === 0 ? (
+                      <span className="text-xs text-white/45">Keine weiteren Mitglieder.</span>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
+              )}
+              {formKind === "appointment" && formSection === "arbeit" ? (
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formShiftCompact}
+                    onChange={(e) => setFormShiftCompact(e.target.checked)}
+                    className="rounded"
+                  />
+                  Als Arbeitsschicht markieren (kompakt im Familienkalender, nicht bei „Nächste Termine“)
+                </label>
+              ) : null}
               <div className="flex flex-wrap gap-2 pt-2 items-center">
                 {editId ? (
                   <Button

@@ -28,6 +28,9 @@ export type ApiCalendarEvent = {
   meetingId?: string | null;
   meetingInvitees?: string[];
   meetingRoomId?: string | null;
+  participantUserIds?: string[];
+  compactInFamilyCalendar?: boolean;
+  excludeFromUpcoming?: boolean;
 };
 
 export type FamilyCalendarSlot = {

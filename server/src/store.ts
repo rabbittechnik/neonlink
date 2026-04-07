@@ -543,6 +543,7 @@ export function listUpcomingCalendarEventsForUser(
   const all = listAggregatedCalendarEventsForUser(viewerId, fromIso, toIso);
   const nowMs = Date.now();
   const filtered = all.filter((e) => {
+    if (e.excludeFromUpcoming) return false;
     const start = parseCalendarDateMs(e.startsAt);
     const end = e.endsAt ? parseCalendarDateMs(e.endsAt) : start;
     return end >= nowMs - 60_000;
@@ -786,7 +787,10 @@ export function createCalendarEvent(input: {
   allDay: boolean;
   location: string;
   visibilityUserIds: string[];
+  participantUserIds?: string[];
   familySlotId: string | null;
+  compactInFamilyCalendar?: boolean;
+  excludeFromUpcoming?: boolean;
   meetingId?: string | null;
   meetingInvitees?: string[];
   meetingRoomId?: string | null;
@@ -832,6 +836,9 @@ export function createCalendarEvent(input: {
       meetingId: mid,
       meetingInvitees: inv,
       meetingRoomId: mrid,
+      participantUserIds: [],
+      compactInFamilyCalendar: false,
+      excludeFromUpcoming: false,
       createdAt: now(),
     };
     calendarEvents.push(ev);
@@ -850,15 +857,23 @@ export function createCalendarEvent(input: {
   // For "familie" section events, automatically share with all workspace members so
   // everyone sees each other's calendar entries without manual visibility setup.
   let vis: string[];
+  let participants: string[];
   if (input.sectionId === "familie") {
     vis = workspaceMembers
       .filter((m) => m.workspaceId === input.workspaceId && m.userId !== input.creatorId)
       .map((m) => m.userId);
+    participants = [...vis];
   } else {
     vis = [...new Set(input.visibilityUserIds.filter((id) => id && id !== input.creatorId))];
     for (const uid of vis) {
       if (!isWorkspaceMember(uid, input.workspaceId)) {
         return { ok: false, reason: "visibility_invalid" };
+      }
+    }
+    participants = [...new Set((input.participantUserIds ?? vis).filter((id) => id && id !== input.creatorId))];
+    for (const uid of participants) {
+      if (!isWorkspaceMember(uid, input.workspaceId)) {
+        return { ok: false, reason: "participant_invalid" };
       }
     }
   }
@@ -893,6 +908,9 @@ export function createCalendarEvent(input: {
     meetingId: null,
     meetingInvitees: [],
     meetingRoomId: null,
+    participantUserIds: participants,
+    compactInFamilyCalendar: Boolean(input.compactInFamilyCalendar),
+    excludeFromUpcoming: Boolean(input.excludeFromUpcoming),
     createdAt: now(),
   };
   calendarEvents.push(ev);
@@ -913,7 +931,10 @@ export function updateCalendarEvent(
       | "allDay"
       | "location"
       | "visibilityUserIds"
+      | "participantUserIds"
       | "familySlotId"
+      | "compactInFamilyCalendar"
+      | "excludeFromUpcoming"
     >
   > & { kind?: CalendarEventKind }
 ): { ok: true; event: CalendarEvent } | { ok: false; reason: string } {
@@ -931,6 +952,15 @@ export function updateCalendarEvent(
       }
     }
     e.visibilityUserIds = vis;
+  }
+  if (patch.participantUserIds !== undefined) {
+    const p = [...new Set(patch.participantUserIds.filter((id) => id && id !== e.createdByUserId))];
+    for (const uid of p) {
+      if (!isWorkspaceMember(uid, e.workspaceId)) {
+        return { ok: false, reason: "participant_invalid" };
+      }
+    }
+    e.participantUserIds = p;
   }
   if (patch.familySlotId !== undefined || patch.kind !== undefined) {
     const newKind = patch.kind ?? e.kind;
@@ -952,10 +982,23 @@ export function updateCalendarEvent(
     }
   }
   if (patch.sectionId !== undefined) e.sectionId = patch.sectionId;
+  if (e.sectionId === "familie") {
+    const all = workspaceMembers
+      .filter((m) => m.workspaceId === e.workspaceId && m.userId !== e.createdByUserId)
+      .map((m) => m.userId);
+    e.visibilityUserIds = all;
+    e.participantUserIds = [...all];
+  }
   if (patch.startsAt !== undefined) e.startsAt = patch.startsAt;
   if (patch.endsAt !== undefined) e.endsAt = patch.endsAt;
   if (patch.allDay !== undefined) e.allDay = patch.allDay;
   if (patch.location !== undefined) e.location = patch.location.trim().slice(0, 300);
+  if (patch.compactInFamilyCalendar !== undefined) {
+    e.compactInFamilyCalendar = Boolean(patch.compactInFamilyCalendar);
+  }
+  if (patch.excludeFromUpcoming !== undefined) {
+    e.excludeFromUpcoming = Boolean(patch.excludeFromUpcoming);
+  }
   if (patch.title !== undefined && (e.kind === "appointment" || e.kind === "meeting")) {
     const t = patch.title.trim().slice(0, 200);
     if (!t) return { ok: false, reason: "title_required" };
