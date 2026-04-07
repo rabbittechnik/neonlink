@@ -48,6 +48,81 @@ const COL_GEMEINSAM = "__gemeinsam__";
 const COL_GETEILT = "__geteilt__";
 const COL_MEMBER_PREFIX = "col:member:";
 
+/** Vertikaler Farbakzent pro Familien-Spalte (Streifen + leichter Verlauf). */
+type FamilyGridColumnTheme = {
+  column: string;
+  header: string;
+  dayRow: string;
+};
+
+const FAMILY_GRID_MEMBER_THEMES: FamilyGridColumnTheme[] = [
+  {
+    column:
+      "border-l-[3px] border-l-fuchsia-400/55 bg-[linear-gradient(90deg,rgba(217,70,239,0.12)_0%,rgba(217,70,239,0.02)_60%,transparent_100%)]",
+    header:
+      "bg-fuchsia-500/22 text-fuchsia-50 border-b border-fuchsia-400/28 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]",
+    dayRow: "bg-fuchsia-500/[0.045]",
+  },
+  {
+    column:
+      "border-l-[3px] border-l-sky-400/55 bg-[linear-gradient(90deg,rgba(14,165,233,0.12)_0%,rgba(14,165,233,0.02)_60%,transparent_100%)]",
+    header:
+      "bg-sky-500/22 text-sky-50 border-b border-sky-400/28 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]",
+    dayRow: "bg-sky-500/[0.045]",
+  },
+  {
+    column:
+      "border-l-[3px] border-l-emerald-400/55 bg-[linear-gradient(90deg,rgba(52,211,153,0.12)_0%,rgba(52,211,153,0.02)_60%,transparent_100%)]",
+    header:
+      "bg-emerald-500/22 text-emerald-50 border-b border-emerald-400/28 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]",
+    dayRow: "bg-emerald-500/[0.045]",
+  },
+  {
+    column:
+      "border-l-[3px] border-l-amber-400/55 bg-[linear-gradient(90deg,rgba(251,191,36,0.12)_0%,rgba(251,191,36,0.02)_60%,transparent_100%)]",
+    header:
+      "bg-amber-500/22 text-amber-50 border-b border-amber-400/28 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]",
+    dayRow: "bg-amber-500/[0.045]",
+  },
+  {
+    column:
+      "border-l-[3px] border-l-rose-400/55 bg-[linear-gradient(90deg,rgba(251,113,133,0.12)_0%,rgba(251,113,133,0.02)_60%,transparent_100%)]",
+    header:
+      "bg-rose-500/22 text-rose-50 border-b border-rose-400/28 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]",
+    dayRow: "bg-rose-500/[0.045]",
+  },
+  {
+    column:
+      "border-l-[3px] border-l-violet-400/55 bg-[linear-gradient(90deg,rgba(167,139,250,0.12)_0%,rgba(167,139,250,0.02)_60%,transparent_100%)]",
+    header:
+      "bg-violet-500/22 text-violet-50 border-b border-violet-400/28 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]",
+    dayRow: "bg-violet-500/[0.045]",
+  },
+];
+
+function familyGridColumnTheme(colId: string, colIndex: number): FamilyGridColumnTheme {
+  if (colId === COL_GEMEINSAM) {
+    return {
+      column:
+        "border-l-[3px] border-l-cyan-400/55 bg-[linear-gradient(90deg,rgba(6,182,212,0.14)_0%,rgba(6,182,212,0.03)_60%,transparent_100%)]",
+      header:
+        "bg-cyan-500/22 text-cyan-50 border-b border-cyan-400/28 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]",
+      dayRow: "bg-cyan-500/[0.045]",
+    };
+  }
+  if (colId === COL_GETEILT) {
+    return {
+      column:
+        "border-l-[3px] border-l-slate-500/50 bg-[linear-gradient(90deg,rgba(100,116,139,0.14)_0%,rgba(100,116,139,0.03)_60%,transparent_100%)]",
+      header:
+        "bg-slate-600/25 text-slate-100 border-b border-slate-400/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
+      dayRow: "bg-slate-500/[0.04]",
+    };
+  }
+  const memberIndex = Math.max(0, colIndex - 1);
+  return FAMILY_GRID_MEMBER_THEMES[memberIndex % FAMILY_GRID_MEMBER_THEMES.length];
+}
+
 function memberColumnId(userId: string): string {
   return `${COL_MEMBER_PREFIX}${userId}`;
 }
@@ -229,6 +304,14 @@ function familySlotOwnerLabel(
 
 function showRangeOwnerInList(ev: ApiCalendarEvent): boolean {
   return isCalendarRangeKind(ev.kind);
+}
+
+function eventSpansMultipleDays(ev: ApiCalendarEvent): boolean {
+  if (!ev.endsAt) return false;
+  const a = new Date(ev.startsAt);
+  const b = new Date(ev.endsAt);
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return false;
+  return dateKeyLocal(a) !== dateKeyLocal(b);
 }
 
 export default function CalendarPage() {
@@ -761,20 +844,21 @@ export default function CalendarPage() {
             ) : (
               <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/5 text-sm">
                 <div className="flex min-w-[720px] w-full">
-                  <div className="sticky left-0 z-30 flex flex-col w-36 shrink-0 border-r border-white/10 bg-[#0a1020]/98">
-                    <div className="h-10 flex items-center px-2 border-b border-white/10 text-white/60 text-xs font-medium">
+                  <div className="sticky left-0 z-30 flex flex-col w-36 shrink-0 border-r border-white/10 border-l-[3px] border-l-slate-400/35 bg-[linear-gradient(90deg,rgba(148,163,184,0.1)_0%,transparent_65%),rgb(10,16,32)]">
+                    <div className="h-10 flex items-center px-2 border-b border-white/10 text-slate-200/90 text-xs font-medium bg-white/[0.04]">
                       Tag
                     </div>
                     {days.map((d) => (
                       <div
                         key={dateKeyLocal(d)}
-                        className="h-[3.5rem] shrink-0 flex items-center px-2 border-b border-white/5 text-white/70 text-xs whitespace-nowrap"
+                        className="h-[3.5rem] shrink-0 flex items-center px-2 border-b border-white/5 text-white/70 text-xs whitespace-nowrap bg-slate-500/[0.03]"
                       >
                         {d.toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "short" })}
                       </div>
                     ))}
                   </div>
-                  {columns.map((col) => {
+                  {columns.map((col, colIdx) => {
+                    const colTheme = familyGridColumnTheme(col.id, colIdx);
                     const rangeBarsSource = events.filter(
                       (ev) =>
                         isCalendarRangeKind(ev.kind) &&
@@ -790,12 +874,30 @@ export default function CalendarPage() {
                         span: { start: number; end: number };
                       }>;
 
+                    const spanAppointmentSource = events.filter(
+                      (ev) =>
+                        !isCalendarRangeKind(ev.kind) &&
+                        eventSpansMultipleDays(ev) &&
+                        assignColumns(ev, slots, members).includes(col.id)
+                    );
+                    const spanAppointments = spanAppointmentSource
+                      .map((ev) => {
+                        const span = eventDayIndexSpan(ev, days);
+                        return span ? { ev, span } : null;
+                      })
+                      .filter(Boolean) as Array<{
+                        ev: ApiCalendarEvent;
+                        span: { start: number; end: number };
+                      }>;
+
                     return (
                       <div
                         key={col.id}
-                        className="flex-1 min-w-[7rem] shrink-0 border-l border-white/10 flex flex-col"
+                        className={`flex-1 min-w-[7rem] shrink-0 flex flex-col ${colTheme.column}`}
                       >
-                        <div className="h-10 flex items-center justify-center px-1 border-b border-white/10 text-white/80 text-xs font-medium text-center">
+                        <div
+                          className={`h-10 flex items-center justify-center px-1 text-xs font-medium text-center ${colTheme.header}`}
+                        >
                           {col.label}
                         </div>
                         <div className="relative flex flex-col">
@@ -839,11 +941,41 @@ export default function CalendarPage() {
                               </button>
                             );
                           })}
+                          {spanAppointments.map(({ ev, span }) => {
+                            const canEdit = ev.createdByUserId === mine && ev.kind !== "meeting";
+                            const rows = span.end - span.start + 1;
+                            const meta = CALENDAR_SECTION_META[ev.sectionId] ?? CALENDAR_SECTION_META.familie;
+                            const Icon = SECTION_ICONS[ev.sectionId] ?? Home;
+                            return (
+                              <button
+                                type="button"
+                                key={`span-${ev.id}`}
+                                onClick={() => canEdit && openEdit(ev)}
+                                className={`absolute left-0.5 right-0.5 rounded-md z-10 text-left px-1 py-0.5 border ${meta.border} ${meta.chip} ${
+                                  canEdit ? "cursor-pointer hover:bg-white/15" : "cursor-default opacity-95"
+                                }`}
+                                style={{
+                                  top: `calc(${span.start} * ${FAMILY_GRID_ROW_H})`,
+                                  height: `calc(${rows} * ${FAMILY_GRID_ROW_H})`,
+                                }}
+                              >
+                                <span className="flex items-start gap-0.5 text-[10px] font-medium leading-tight line-clamp-3">
+                                  {ev.kind === "meeting" ? (
+                                    <Video className="h-3 w-3 shrink-0 mt-0.5 text-cyan-300 opacity-90" />
+                                  ) : (
+                                    <Icon className="h-3 w-3 shrink-0 mt-0.5 opacity-85" />
+                                  )}
+                                  {ev.title}
+                                </span>
+                              </button>
+                            );
+                          })}
                           {days.map((d) => {
                             const key = dateKeyLocal(d);
                             const cell = events.filter(
                               (ev) =>
                                 !isCalendarRangeKind(ev.kind) &&
+                                !eventSpansMultipleDays(ev) &&
                                 eventTouchesDay(ev, d) &&
                                 assignColumns(ev, slots, members).includes(col.id)
                             );
@@ -852,7 +984,7 @@ export default function CalendarPage() {
                             return (
                               <div
                                 key={key}
-                                className="h-[3.5rem] shrink-0 border-b border-white/5 relative pointer-events-none"
+                                className={`h-[3.5rem] shrink-0 border-b border-white/5 relative pointer-events-none ${colTheme.dayRow}`}
                               >
                                 <div className="absolute inset-0 p-1 flex flex-col gap-1 z-20 pointer-events-auto">
                                   {normalCell.map((ev) => {
