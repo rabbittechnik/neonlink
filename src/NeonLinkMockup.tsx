@@ -193,6 +193,49 @@ type WorkspaceSummary = {
   memberCount?: number;
 };
 
+function extractSurname(displayName: string): string | null {
+  const parts = displayName
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length < 2) return null;
+  return parts[parts.length - 1] ?? null;
+}
+
+function normalizeSurnameToken(raw: string): string {
+  return raw
+    .toLocaleLowerCase("de-DE")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z]/g, "");
+}
+
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const dp = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
+  for (let i = 0; i <= a.length; i++) dp[i]![0] = i;
+  for (let j = 0; j <= b.length; j++) dp[0]![j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i]![j] = Math.min(dp[i - 1]![j]! + 1, dp[i]![j - 1]! + 1, dp[i - 1]![j - 1]! + cost);
+    }
+  }
+  return dp[a.length]![b.length]!;
+}
+
+function shouldMergeSurnameTypo(a: string, b: string): boolean {
+  const na = normalizeSurnameToken(a);
+  const nb = normalizeSurnameToken(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  const maxLen = Math.max(na.length, nb.length);
+  if (maxLen <= 6) return levenshtein(na, nb) <= 1;
+  return levenshtein(na, nb) <= 2;
+}
+
 type ServerUser = {
   id: string;
   displayName: string;
@@ -602,6 +645,19 @@ export default function NeonLinkMockup() {
   const senderUserId = currentUser?.id ?? "";
 
   const chatSearchLower = chatSidebarSearch.trim().toLowerCase();
+  const workspaceHeaderLabel = useMemo(() => {
+    const rawSurnames = workspaceChatMembers
+      .map((m) => extractSurname(m.displayName))
+      .filter((s): s is string => Boolean(s));
+    const surnames: string[] = [];
+    for (const s of rawSurnames) {
+      const idx = surnames.findIndex((x) => shouldMergeSurnameTypo(x, s));
+      if (idx === -1) surnames.push(s);
+    }
+    if (surnames.length === 0) return workspaceLabel;
+    if (surnames.length === 1) return `Familie ${surnames[0]}`;
+    return `Familie ${surnames.join("/")}`;
+  }, [workspaceChatMembers, workspaceLabel]);
   const roomMatchesSearch = useCallback(
     (room: (typeof rooms)[number]) => {
       if (!chatSearchLower) return true;
@@ -2103,9 +2159,9 @@ export default function NeonLinkMockup() {
           <div className="flex items-center justify-between gap-2 min-w-0">
             <div className="min-w-0">
               <div className="text-xs uppercase tracking-[0.25em] text-cyan-100 font-semibold">NeonLink</div>
-              {workspaceLabel ? (
-                <div className="text-[11px] text-white mt-0.5 truncate" title={workspaceLabel}>
-                  {workspaceLabel}
+              {workspaceHeaderLabel ? (
+                <div className="text-[11px] text-white mt-0.5 whitespace-normal break-words leading-snug" title={workspaceHeaderLabel}>
+                  {workspaceHeaderLabel}
                 </div>
               ) : null}
               <div className="text-2xl font-semibold mt-1 truncate">{activeSectionData.label}</div>
