@@ -132,6 +132,19 @@ function assignColumn(
   return COL_GETEILT;
 }
 
+function assignColumns(
+  ev: ApiCalendarEvent,
+  slots: FamilyCalendarSlot[],
+  members: Array<{ userId: string; displayName: string }>
+): string[] {
+  const cols = new Set<string>();
+  cols.add(assignColumn(ev, slots, members));
+  for (const uid of ev.participantUserIds ?? []) {
+    cols.add(memberColumnIdOrGemeinsam(uid, members));
+  }
+  return [...cols];
+}
+
 function toDatetimeLocal(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
@@ -742,7 +755,7 @@ export default function CalendarPage() {
                     const rangeBarsSource = events.filter(
                       (ev) =>
                         isCalendarRangeKind(ev.kind) &&
-                        assignColumn(ev, slots, members) === col.id
+                        assignColumns(ev, slots, members).includes(col.id)
                     );
                     const vacationBars = rangeBarsSource
                       .map((ev) => {
@@ -809,7 +822,7 @@ export default function CalendarPage() {
                               (ev) =>
                                 !isCalendarRangeKind(ev.kind) &&
                                 eventTouchesDay(ev, d) &&
-                                assignColumn(ev, slots, members) === col.id
+                                assignColumns(ev, slots, members).includes(col.id)
                             );
                             const compactCell = cell.filter((ev) => ev.compactInFamilyCalendar);
                             const normalCell = cell.filter((ev) => !ev.compactInFamilyCalendar);
