@@ -1383,7 +1383,7 @@ export function registerUserWithPassword(
     displayName: displayName.trim(),
     email: em,
     phoneDigits,
-    status: "online",
+    status: "offline",
     friendCode: makeFriendCode(),
     passwordSalt: salt,
     passwordHash: hash,
@@ -1784,6 +1784,17 @@ export function patchUserProfile(
       ensureFamilyCalendarSlotsForWorkspace(wsId, userId);
     }
   }
+  return { ok: true };
+}
+
+export function setUserPresenceStatus(
+  userId: string,
+  status: PresenceStatus
+): { ok: true } | { ok: false } {
+  const user = users.find((u) => u.id === userId);
+  if (!user) return { ok: false };
+  if (!STATUS_SET.has(status)) return { ok: false };
+  user.status = status;
   return { ok: true };
 }
 

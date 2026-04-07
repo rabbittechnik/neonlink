@@ -642,6 +642,21 @@ export default function NeonLinkMockup() {
     });
   };
 
+  const markCalendarNewsSeen = (eventId: string) => {
+    if (!currentUser) return;
+    setSeenCalendarNewsIds((prev) => {
+      if (prev.has(eventId)) return prev;
+      const next = new Set(prev);
+      next.add(eventId);
+      try {
+        localStorage.setItem(`neonlink:seenCalNews:${currentUser.id}`, JSON.stringify([...next]));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
+
   const newsFeedItems = useMemo((): NewsFeedItem[] => {
     const uid = senderUserId;
     if (!uid) return [];
@@ -1372,6 +1387,7 @@ export default function NeonLinkMockup() {
     let cancelled = false;
     const load = async () => {
       const from = new Date();
+      from.setHours(0, 0, 0, 0);
       const to = new Date(from.getTime() + 366 * 86400000);
       try {
         const qs = new URLSearchParams({
@@ -1492,12 +1508,14 @@ export default function NeonLinkMockup() {
         const response = await authFetch(`/friends/requests/${friendCategoryCtx.requestId}/respond`, {
           method: "POST",
           body: JSON.stringify({
-            userId: currentUser.id,
             action: "accept",
             toCategoryKeys: keys,
           }),
         });
-        if (!response.ok) throw new Error("response_failed");
+        if (!response.ok) {
+          const data = (await response.json().catch(() => ({}))) as { error?: string };
+          throw new Error(data.error ?? "response_failed");
+        }
         await loadFriendData(currentUser.id);
         setFriendInfo("Anfrage angenommen — Kategorien gespeichert.");
       }
@@ -1506,7 +1524,7 @@ export default function NeonLinkMockup() {
       setFriendInfo(
         friendCategoryCtx.mode === "send"
           ? `Anfrage fehlgeschlagen: ${message}`
-          : "Annehmen fehlgeschlagen."
+          : `Annehmen fehlgeschlagen: ${message}`
       );
     } finally {
       setFriendCategoryOpen(false);
@@ -1519,13 +1537,17 @@ export default function NeonLinkMockup() {
     try {
       const response = await authFetch(`/friends/requests/${requestId}/respond`, {
         method: "POST",
-        body: JSON.stringify({ userId: currentUser.id, action: "reject" }),
+        body: JSON.stringify({ action: "reject" }),
       });
-      if (!response.ok) throw new Error("response_failed");
+      if (!response.ok) {
+        const data = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? "response_failed");
+      }
       await loadFriendData(currentUser.id);
       setFriendInfo("Anfrage abgelehnt.");
-    } catch {
-      setFriendInfo("Antwort auf Anfrage fehlgeschlagen.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "fehlgeschlagen";
+      setFriendInfo(`Antwort auf Anfrage fehlgeschlagen: ${message}`);
     }
   };
 
@@ -1976,7 +1998,10 @@ export default function NeonLinkMockup() {
   };
 
   const openMeetingInviteFromNews = (item: NewsFeedItem) => {
-    if (item.calendarEventId) markMeetingInviteSeen(item.calendarEventId);
+    if (item.calendarEventId) {
+      markMeetingInviteSeen(item.calendarEventId);
+      markCalendarNewsSeen(item.calendarEventId);
+    }
     if (!item.sectionId) {
       navigate("/kalender");
       return;
@@ -1993,18 +2018,8 @@ export default function NeonLinkMockup() {
   };
 
   const openCalendarNewsFromNews = (eventId: string) => {
-    if (!currentUser) return;
-    setSeenCalendarNewsIds((prev) => {
-      if (prev.has(eventId)) return prev;
-      const next = new Set(prev);
-      next.add(eventId);
-      try {
-        localStorage.setItem(`neonlink:seenCalNews:${currentUser.id}`, JSON.stringify([...next]));
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
+    markCalendarNewsSeen(eventId);
+    markMeetingInviteSeen(eventId);
     navigate("/kalender");
   };
 
@@ -3269,7 +3284,7 @@ export default function NeonLinkMockup() {
 
                 <Card className="rounded-3xl border-white/10 bg-white/5 text-white backdrop-blur-xl shrink-0">
                 <CardHeader>
-                  <CardTitle className="text-lg">Naechste Termine</CardTitle>
+                  <CardTitle className="text-lg">Nächste Termine</CardTitle>
                   <p className="text-[11px] text-white font-normal mt-1 leading-snug">
                     Aus allen Workspaces · Farbe = Rubrik (z.&nbsp;B. Feuerwehr rot, Familie türkis)
                   </p>

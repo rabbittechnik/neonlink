@@ -103,7 +103,16 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY));
+  const [token, setToken] = useState<string | null>(() => {
+    const fromSession = sessionStorage.getItem(TOKEN_KEY);
+    if (fromSession) return fromSession;
+    // Migrate away from persistent login on shared PCs.
+    const fromLocal = localStorage.getItem(TOKEN_KEY);
+    if (fromLocal) {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+    return null;
+  });
   const [user, setUser] = useState<AuthUser | null>(null);
   const [ready, setReady] = useState(false);
 
@@ -132,7 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) {
-          localStorage.removeItem(TOKEN_KEY);
+          sessionStorage.removeItem(TOKEN_KEY);
           if (!cancelled) {
             setToken(null);
             setUser(null);
@@ -180,7 +189,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!data.token || !data.user) {
       throw new Error("invalid_response");
     }
-    localStorage.setItem(TOKEN_KEY, data.token);
+    sessionStorage.setItem(TOKEN_KEY, data.token);
     setToken(data.token);
     setUser(normalizeAuthUser(data.user));
   }, []);
@@ -211,17 +220,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const err = payload as { error?: string };
       throw new Error(typeof err.error === "string" && err.error ? err.error : "register_failed");
     }
-    const data = payload as { token?: string; user?: Record<string, unknown> };
-    if (!data.token || !data.user) {
-      throw new Error("invalid_response");
-    }
-    localStorage.setItem(TOKEN_KEY, data.token);
-    setToken(data.token);
-    setUser(normalizeAuthUser(data.user));
+    // Registration is successful, but no automatic login.
+    sessionStorage.removeItem(TOKEN_KEY);
+    setToken(null);
+    setUser(null);
   }, []);
 
   const logout = useCallback(async () => {
-    const t = localStorage.getItem(TOKEN_KEY);
+    const t = sessionStorage.getItem(TOKEN_KEY);
     if (t) {
       try {
         await fetch(`${API_BASE_URL}/auth/logout`, {
@@ -232,7 +238,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // ignorieren
       }
     }
-    localStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
     setToken(null);
     setUser(null);
   }, []);
@@ -244,7 +250,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ avatarUrl: avatarDataUrl }),
       });
       if (res.status === 401) {
-        localStorage.removeItem(TOKEN_KEY);
+        sessionStorage.removeItem(TOKEN_KEY);
         setToken(null);
         setUser(null);
         throw new Error("unauthorized");
@@ -266,7 +272,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify(patch),
       });
       if (res.status === 401) {
-        localStorage.removeItem(TOKEN_KEY);
+        sessionStorage.removeItem(TOKEN_KEY);
         setToken(null);
         setUser(null);
         throw new Error("unauthorized");
@@ -334,7 +340,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const regenerateFriendCode = useCallback(async () => {
     const res = await authFetch("/auth/me/friend-code/regenerate", { method: "POST" });
     if (res.status === 401) {
-      localStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem(TOKEN_KEY);
       setToken(null);
       setUser(null);
       throw new Error("unauthorized");

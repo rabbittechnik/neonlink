@@ -79,6 +79,7 @@ import {
   listRoomsForViewer,
   generateMonthlyWorkPlan,
   patchUserProfile,
+  setUserPresenceStatus,
   postWorkScheduleChatMessage,
   putWorkScheduleRules,
   renameMeetingRoom,
@@ -217,8 +218,7 @@ app.post("/auth/register", (req, res) => {
     const status = result.reason === "email_taken" ? 409 : 400;
     return res.status(status).json({ error: result.reason });
   }
-  const token = createSession(result.user.id);
-  return res.status(201).json({ token, user: toPrivateProfile(result.user) });
+  return res.status(201).json({ ok: true, user: toPrivateProfile(result.user) });
 });
 
 app.get("/auth/me", requireAuth, (req, res) => {
@@ -661,14 +661,14 @@ app.post("/friends/requests", requireAuth, (req, res) => {
 });
 
 app.post("/friends/requests/:requestId/respond", requireAuth, (req, res) => {
-  const { userId, action, toCategoryKeys } = req.body as {
-    userId?: string;
+  const { action, toCategoryKeys } = req.body as {
     action?: "accept" | "reject";
     toCategoryKeys?: unknown;
   };
-  if (!userId || userId !== req.authUserId || (action !== "accept" && action !== "reject")) {
+  if (action !== "accept" && action !== "reject") {
     return res.status(400).json({ error: "invalid_request" });
   }
+  const userId = req.authUserId!;
   const result = respondToFriendRequest(
     req.params.requestId,
     userId,
@@ -1669,6 +1669,7 @@ const io = new Server(httpServer, {
   cors: { origin: "*" },
 });
 socketIo = io;
+const connectedSocketsByUser = new Map<string, number>();
 
 function emitChatMessageCreated(message: Message) {
   const sio = socketIo;
@@ -1718,9 +1719,22 @@ io.on("connection", (socket) => {
   const socketUserId = socket.data.userId as string;
   console.log(`[socket] user connected: ${socketUserId} (${socket.id})`);
   socket.join(`user:${socketUserId}`);
+  {
+    const next = (connectedSocketsByUser.get(socketUserId) ?? 0) + 1;
+    connectedSocketsByUser.set(socketUserId, next);
+    // Real online status while at least one socket is connected.
+    void setUserPresenceStatus(socketUserId, "online");
+  }
 
   socket.on("disconnect", (reason) => {
     console.log(`[socket] user disconnected: ${socketUserId} (${socket.id}) reason=${reason}`);
+    const next = Math.max(0, (connectedSocketsByUser.get(socketUserId) ?? 1) - 1);
+    if (next === 0) {
+      connectedSocketsByUser.delete(socketUserId);
+      void setUserPresenceStatus(socketUserId, "offline");
+    } else {
+      connectedSocketsByUser.set(socketUserId, next);
+    }
   });
 
   socket.on("room:join", (roomId: string) => {

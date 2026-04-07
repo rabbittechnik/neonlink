@@ -48,10 +48,12 @@ export default function LoginPage() {
   const [registerStep, setRegisterStep] = useState<1 | 2>(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
     if (mode === "register" && registerStep === 1) {
       if (!displayName.trim() || !email.trim() || !password) {
         setError(errorMessage("displayName, email and password are required"));
@@ -69,6 +71,7 @@ export default function LoginPage() {
     try {
       if (mode === "login") {
         await login(email, password);
+        navigate("/", { replace: true });
       } else {
         if (!phone.trim()) {
           setError("Bitte Handynummer eingeben.");
@@ -76,8 +79,11 @@ export default function LoginPage() {
           return;
         }
         await register(displayName, email, password, phone);
+        setSuccess("Registrierung erfolgreich. Bitte jetzt mit E-Mail und Passwort einloggen.");
+        setMode("login");
+        setRegisterStep(1);
+        setPhone("");
       }
-      navigate("/", { replace: true });
     } catch (err) {
       const code = err instanceof Error ? err.message : "unknown";
       setError(errorMessage(code));
@@ -252,6 +258,11 @@ export default function LoginPage() {
               {error ? (
                 <div className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
                   {error}
+                </div>
+              ) : null}
+              {success ? (
+                <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
+                  {success}
                 </div>
               ) : null}
 
