@@ -2594,12 +2594,14 @@ export default function NeonLinkMockup() {
                       ? activeMeetingRoomId
                       : meetingRooms[0]!.id;
                   const room = meetingRooms.find((r) => r.id === rid)!;
-                  navigate(
+                  window.open(
                     videoMeetingPath({
                       workspaceId: activeWorkspaceId,
                       roomId: rid,
                       title: `Live: ${room.name}`,
-                    })
+                    }),
+                    "_blank",
+                    "noopener,noreferrer"
                   );
                 }}
                 disabled={!activeWorkspaceId || meetingRooms.length === 0}
@@ -3396,22 +3398,63 @@ export default function NeonLinkMockup() {
                       ]
                         .filter(Boolean)
                         .join(" · ");
+                      const meetingVideoPath =
+                        ev.kind === "meeting" && ev.meetingId
+                          ? videoMeetingPath({
+                              workspaceId: ev.workspaceId,
+                              meetingId: ev.meetingId,
+                              title: ev.title,
+                            })
+                          : ev.kind === "meeting" && ev.meetingRoomId
+                            ? videoMeetingPath({
+                                workspaceId: ev.workspaceId,
+                                roomId: ev.meetingRoomId,
+                                title: ev.title,
+                              })
+                            : null;
+                      const rowClass = `w-full text-left rounded-2xl border px-4 py-3 flex items-start gap-3 min-w-0 transition-colors hover:brightness-110 ${card.wrap}`;
+                      const inner = (
+                        <>
+                          <div
+                            className={`h-10 w-10 shrink-0 rounded-2xl border flex items-center justify-center ${card.iconWrap}`}
+                          >
+                            {meetingVideoPath ? (
+                              <Video className={`h-5 w-5 ${card.clockClass}`} />
+                            ) : (
+                              <Clock3 className={`h-5 w-5 ${card.clockClass}`} />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium leading-snug break-words">{ev.title}</div>
+                            <div className="text-xs text-white mt-1 leading-snug break-words">{sub}</div>
+                            {meetingVideoPath ? (
+                              <div className="text-[10px] text-cyan-200/80 mt-1">Klick öffnet Video in neuem Tab</div>
+                            ) : null}
+                          </div>
+                        </>
+                      );
+                      if (meetingVideoPath) {
+                        return (
+                          <a
+                            key={ev.id}
+                            href={meetingVideoPath}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`${rowClass} no-underline text-inherit cursor-pointer block`}
+                            aria-label={`Meeting ${ev.title}, Video in neuem Tab`}
+                          >
+                            {inner}
+                          </a>
+                        );
+                      }
                       return (
                         <button
                           key={ev.id}
                           type="button"
                           onClick={() => navigate("/kalender")}
-                          className={`w-full text-left rounded-2xl border px-4 py-3 flex items-start gap-3 min-w-0 transition-colors hover:brightness-110 ${card.wrap}`}
+                          className={rowClass}
                         >
-                          <div
-                            className={`h-10 w-10 shrink-0 rounded-2xl border flex items-center justify-center ${card.iconWrap}`}
-                          >
-                            <Clock3 className={`h-5 w-5 ${card.clockClass}`} />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-sm font-medium leading-snug break-words">{ev.title}</div>
-                            <div className="text-xs text-white mt-1 leading-snug break-words">{sub}</div>
-                          </div>
+                          {inner}
                         </button>
                       );
                     })

@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { CalendarDays, Pencil, Plus, Trash2, Users, Video } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ApiMeeting, ApiMeetingRoom } from "@/types/meetings";
@@ -68,7 +67,6 @@ export function MeetingsWorkspacePanel({
   onDeleteRoom,
   currentUserDisplayName,
 }: Props) {
-  const navigate = useNavigate();
   const [modalOpen, setModalOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [newRoomOpen, setNewRoomOpen] = useState(false);
@@ -100,13 +98,12 @@ export function MeetingsWorkspacePanel({
 
   const startRoomNow = () => {
     if (!activeRoom || !activeRoomId) return;
-    navigate(
-      videoMeetingPath({
-        workspaceId,
-        roomId: activeRoomId,
-        title: `Live: ${activeRoom.name}`,
-      })
-    );
+    const path = videoMeetingPath({
+      workspaceId,
+      roomId: activeRoomId,
+      title: `Live: ${activeRoom.name}`,
+    });
+    window.open(path, "_blank", "noopener,noreferrer");
   };
 
   const sendQuickInvites = async () => {
@@ -446,12 +443,14 @@ export function MeetingsWorkspacePanel({
                       <p className="text-[10px] text-white/50 mt-1.5">Tippen für Details · unten direkt Video</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 shrink-0 sm:flex-col sm:items-stretch sm:justify-center">
-                      <Link
-                        to={videoMeetingPath({
+                      <a
+                        href={videoMeetingPath({
                           workspaceId,
                           meetingId: m.id,
                           title: m.title,
                         })}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className={`inline-flex items-center justify-center px-4 py-2 rounded-xl text-sm font-medium no-underline ${
                           live
                             ? "bg-gradient-to-r from-emerald-500/40 to-cyan-500/35 border border-emerald-400/50 text-white animate-pulse"
@@ -460,7 +459,7 @@ export function MeetingsWorkspacePanel({
                       >
                         <Video className="h-4 w-4 mr-1.5 shrink-0" />
                         {live ? "Jetzt beitreten" : "Video starten"}
-                      </Link>
+                      </a>
                       {m.createdByUserId === currentUserId ? (
                         <Button
                           type="button"
@@ -503,18 +502,20 @@ export function MeetingsWorkspacePanel({
           <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl border border-white/15 bg-[#0c1428] p-5 shadow-xl">
             <h3 className="text-lg font-semibold text-white pr-8">{detail.title}</h3>
             <p className="text-xs text-cyan-200/80 mt-1">{formatRange(detail.startsAt, detail.endsAt)}</p>
-            <Link
-              to={videoMeetingPath({
+            <a
+              href={videoMeetingPath({
                 workspaceId,
                 meetingId: detail.id,
                 title: detail.title,
               })}
+              target="_blank"
+              rel="noopener noreferrer"
               onClick={() => setDetailId(null)}
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500/35 to-cyan-600/35 border border-emerald-400/50 text-white font-semibold py-6 text-base hover:from-emerald-500/45 hover:to-cyan-600/45 shadow-[0_0_24px_rgba(34,211,238,0.18)] no-underline"
             >
               <Video className="h-5 w-5 shrink-0" />
-              Jetzt beitreten (eigene Seite · Jitsi)
-            </Link>
+              Jetzt beitreten (neuer Tab · Jitsi)
+            </a>
             <p className="text-[10px] text-white/55 mt-2 leading-snug">
               Öffnet den Video-Raum auf einer eigenen Seite (voller Platz). Mikrofon/Kamera freigeben;
               Bildschirm in Jitsi über die Werkzeugleiste.
