@@ -57,6 +57,7 @@ import { CHAT_EMOJI_SECTIONS } from "@/constants/chatEmojis";
 import { CHAT_PRESET_GIFS } from "@/constants/chatGifs";
 import { MeetingsWorkspacePanel } from "@/components/meetings/MeetingsWorkspacePanel";
 import { NewsFeedPanel } from "@/components/news/NewsFeedPanel";
+import { DeparturesDashboard } from "@/components/transit/DeparturesDashboard";
 import type { ApiCalendarEvent } from "@/types/calendar";
 import type { NewsFeedItem } from "@/types/news";
 import type { ApiMeeting, ApiMeetingRoom } from "@/types/meetings";
@@ -2803,7 +2804,9 @@ export default function NeonLinkMockup() {
                 />
               </div>
             ) : (
-            <Card className="lg:col-span-8 min-w-0 rounded-3xl border border-white/10 bg-white/5 text-white backdrop-blur-xl flex flex-col min-h-0 min-w-0 lg:h-full lg:max-h-full">
+            <div className="lg:col-span-8 min-w-0 flex flex-col gap-3 min-h-0 lg:h-full lg:max-h-full">
+              <DeparturesDashboard />
+            <Card className="flex-1 min-h-0 min-w-0 rounded-3xl border border-white/10 bg-white/5 text-white backdrop-blur-xl flex flex-col lg:min-h-0">
               <CardHeader className="rounded-t-3xl border-b border-white/10 px-6 sm:px-10 pt-7 pb-4 flex justify-center items-center shrink-0">
                 <CardTitle className="text-lg sm:text-xl text-center font-semibold tracking-wide text-white leading-normal">
                   Live-Chat
@@ -3315,6 +3318,7 @@ export default function NeonLinkMockup() {
                 </div>
               </div>
             </Card>
+            </div>
             )}
 
             <div className="lg:col-span-4 min-w-0 flex flex-col gap-4 min-h-0 lg:h-full lg:max-h-full">
