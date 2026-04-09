@@ -44,7 +44,7 @@ import type { ChatMessage, SectionId } from "@/types/collab";
 import { io, type Socket } from "socket.io-client";
 import { useAuth } from "@/auth/AuthContext";
 import { API_BASE_URL, SOCKET_ORIGIN } from "@/config";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, type NavigateFunction } from "react-router-dom";
 import { CalendarAnnouncementMessage } from "@/components/chat/CalendarAnnouncementMessage";
 import { NewChatModal } from "@/components/chat/NewChatModal";
 import { ProfileModal } from "@/components/profile/ProfileModal";
@@ -372,6 +372,67 @@ function upcomingCardClasses(sectionId: string) {
   return CALENDAR_UPCOMING_CARD[sid];
 }
 
+function SidebarUpcomingRow({ ev, navigate }: { ev: ApiCalendarEvent; navigate: NavigateFunction }) {
+  const card = upcomingCardClasses(ev.sectionId);
+  const sec = CALENDAR_SECTION_META[ev.sectionId as SectionId] ?? CALENDAR_SECTION_META.familie;
+  const timePart = formatSidebarUpcomingTime(ev.startsAt, ev.allDay);
+  const loc = (ev.location ?? "").trim();
+  const sub = [timePart, loc || null, sec.label, ev.workspaceName ?? null].filter(Boolean).join(" · ");
+  const meetingVideoPath =
+    ev.kind === "meeting" && ev.meetingId
+      ? videoMeetingPath({
+          workspaceId: ev.workspaceId,
+          meetingId: ev.meetingId,
+          title: ev.title,
+        })
+      : ev.kind === "meeting" && ev.meetingRoomId
+        ? videoMeetingPath({
+            workspaceId: ev.workspaceId,
+            roomId: ev.meetingRoomId,
+            title: ev.title,
+          })
+        : null;
+  const rowClass = `w-full text-left rounded-2xl border px-4 py-3 flex items-start gap-3 min-w-0 transition-colors hover:brightness-110 ${card.wrap}`;
+  const inner = (
+    <>
+      <div
+        className={`h-10 w-10 shrink-0 rounded-2xl border flex items-center justify-center ${card.iconWrap}`}
+      >
+        {meetingVideoPath ? (
+          <Video className={`h-5 w-5 ${card.clockClass}`} />
+        ) : (
+          <Clock3 className={`h-5 w-5 ${card.clockClass}`} />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium leading-snug break-words">{ev.title}</div>
+        <div className="text-xs text-white mt-1 leading-snug break-words">{sub}</div>
+        {meetingVideoPath ? (
+          <div className="text-[10px] text-cyan-200/80 mt-1">Klick öffnet Video in neuem Tab</div>
+        ) : null}
+      </div>
+    </>
+  );
+  if (meetingVideoPath) {
+    return (
+      <a
+        href={meetingVideoPath}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`${rowClass} no-underline text-inherit cursor-pointer block`}
+        aria-label={`Meeting ${ev.title}, Video in neuem Tab`}
+      >
+        {inner}
+      </a>
+    );
+  }
+  return (
+    <button type="button" onClick={() => void navigate("/kalender")} className={rowClass}>
+      {inner}
+    </button>
+  );
+}
+
 function StatusPill({ presence }: { presence: PresenceKind }) {
   const s = STATUS_PILL[presence];
   return (
@@ -479,6 +540,15 @@ export default function NeonLinkMockup() {
   const sections = mockWorkspace.sections;
   const [sidebarUpcoming, setSidebarUpcoming] = useState<ApiCalendarEvent[]>([]);
   const workspaceScopeId = activeWorkspaceId ?? mockWorkspace.id;
+
+  const sidebarAppointmentsOnly = useMemo(
+    () => sidebarUpcoming.filter((e) => e.kind !== "meeting"),
+    [sidebarUpcoming]
+  );
+  const sidebarMeetingsOnly = useMemo(
+    () => sidebarUpcoming.filter((e) => e.kind === "meeting"),
+    [sidebarUpcoming]
+  );
 
   const sourceRooms = useMemo((): WorkspaceChatRoom[] => {
     if (serverRooms.length > 0) return serverRooms;
@@ -3384,92 +3454,55 @@ export default function NeonLinkMockup() {
                 <CardHeader>
                   <CardTitle className="text-lg">Nächste Termine</CardTitle>
                   <p className="text-[11px] text-white font-normal mt-1 leading-snug">
-                    Aus allen Workspaces · Farbe = Rubrik (z.&nbsp;B. Feuerwehr rot, Familie türkis)
+                    Kalender-Einträge aus allen Workspaces · Farbe = Rubrik (z.&nbsp;B. Feuerwehr rot, Familie
+                    türkis). Video-Meetings stehen separat unter <strong className="text-white">Meetings</strong>.
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {!token || !currentUser ? (
                     <div className="text-xs text-white py-4 text-center">Anmelden, um Termine zu sehen.</div>
-                  ) : sidebarUpcoming.length === 0 ? (
+                  ) : sidebarAppointmentsOnly.length === 0 ? (
                     <div className="text-xs text-white py-4 text-center leading-relaxed">
-                      Keine anstehenden Termine. Unter <strong className="text-white">Kalender</strong> kannst du
-                      welche anlegen — sie erscheinen hier und im Kalender über alle Bereiche.
+                      {sidebarMeetingsOnly.length > 0 ? (
+                        <>
+                          Keine anstehenden Kalender-Termine (ohne Video). Deine nächsten Video-Meetings findest du
+                          im Block <strong className="text-white">Meetings</strong> darunter — dort startet der Klick
+                          die Konferenz.
+                        </>
+                      ) : (
+                        <>
+                          Keine anstehenden Termine. Unter <strong className="text-white">Kalender</strong> kannst du
+                          welche anlegen — sie erscheinen hier und im Kalender über alle Bereiche.
+                        </>
+                      )}
                     </div>
                   ) : (
-                    sidebarUpcoming.map((ev) => {
-                      const card = upcomingCardClasses(ev.sectionId);
-                      const sec =
-                        CALENDAR_SECTION_META[ev.sectionId as SectionId] ?? CALENDAR_SECTION_META.familie;
-                      const timePart = formatSidebarUpcomingTime(ev.startsAt, ev.allDay);
-                      const loc = (ev.location ?? "").trim();
-                      const sub = [
-                        timePart,
-                        loc || null,
-                        sec.label,
-                        ev.workspaceName ?? null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ");
-                      const meetingVideoPath =
-                        ev.kind === "meeting" && ev.meetingId
-                          ? videoMeetingPath({
-                              workspaceId: ev.workspaceId,
-                              meetingId: ev.meetingId,
-                              title: ev.title,
-                            })
-                          : ev.kind === "meeting" && ev.meetingRoomId
-                            ? videoMeetingPath({
-                                workspaceId: ev.workspaceId,
-                                roomId: ev.meetingRoomId,
-                                title: ev.title,
-                              })
-                            : null;
-                      const rowClass = `w-full text-left rounded-2xl border px-4 py-3 flex items-start gap-3 min-w-0 transition-colors hover:brightness-110 ${card.wrap}`;
-                      const inner = (
-                        <>
-                          <div
-                            className={`h-10 w-10 shrink-0 rounded-2xl border flex items-center justify-center ${card.iconWrap}`}
-                          >
-                            {meetingVideoPath ? (
-                              <Video className={`h-5 w-5 ${card.clockClass}`} />
-                            ) : (
-                              <Clock3 className={`h-5 w-5 ${card.clockClass}`} />
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-sm font-medium leading-snug break-words">{ev.title}</div>
-                            <div className="text-xs text-white mt-1 leading-snug break-words">{sub}</div>
-                            {meetingVideoPath ? (
-                              <div className="text-[10px] text-cyan-200/80 mt-1">Klick öffnet Video in neuem Tab</div>
-                            ) : null}
-                          </div>
-                        </>
-                      );
-                      if (meetingVideoPath) {
-                        return (
-                          <a
-                            key={ev.id}
-                            href={meetingVideoPath}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`${rowClass} no-underline text-inherit cursor-pointer block`}
-                            aria-label={`Meeting ${ev.title}, Video in neuem Tab`}
-                          >
-                            {inner}
-                          </a>
-                        );
-                      }
-                      return (
-                        <button
-                          key={ev.id}
-                          type="button"
-                          onClick={() => navigate("/kalender")}
-                          className={rowClass}
-                        >
-                          {inner}
-                        </button>
-                      );
-                    })
+                    sidebarAppointmentsOnly.map((ev) => (
+                      <SidebarUpcomingRow key={ev.id} ev={ev} navigate={navigate} />
+                    ))
+                  )}
+                </CardContent>
+                </Card>
+
+                <Card className="rounded-3xl border-white/10 bg-white/5 text-white backdrop-blur-xl shrink-0">
+                <CardHeader>
+                  <CardTitle className="text-lg">Meetings</CardTitle>
+                  <p className="text-[11px] text-white font-normal mt-1 leading-snug">
+                    Videokonferenzen — Klick öffnet das Meeting in einem neuen Tab. Termin-Übersicht weiterhin im
+                    Kalender und links unter Familienkalender.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {!token || !currentUser ? (
+                    <div className="text-xs text-white py-4 text-center">Anmelden, um Meetings zu sehen.</div>
+                  ) : sidebarMeetingsOnly.length === 0 ? (
+                    <div className="text-xs text-white py-4 text-center leading-relaxed">
+                      Keine anstehenden Video-Meetings. Geplante Meetings erscheinen hier und im Kalender.
+                    </div>
+                  ) : (
+                    sidebarMeetingsOnly.map((ev) => (
+                      <SidebarUpcomingRow key={ev.id} ev={ev} navigate={navigate} />
+                    ))
                   )}
                 </CardContent>
                 </Card>
