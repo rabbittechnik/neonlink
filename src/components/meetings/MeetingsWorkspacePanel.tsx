@@ -416,11 +416,37 @@ export function MeetingsWorkspacePanel({
                       role="button"
                       tabIndex={0}
                       className="min-w-0 flex-1 text-left cursor-pointer rounded-xl -m-1 p-1"
-                      onClick={() => setDetailId(m.id)}
+                      onClick={() => {
+                        if (live) {
+                          window.open(
+                            videoMeetingPath({
+                              workspaceId,
+                              meetingId: m.id,
+                              title: m.title,
+                            }),
+                            "_blank",
+                            "noopener,noreferrer"
+                          );
+                        } else {
+                          setDetailId(m.id);
+                        }
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          setDetailId(m.id);
+                          if (live) {
+                            window.open(
+                              videoMeetingPath({
+                                workspaceId,
+                                meetingId: m.id,
+                                title: m.title,
+                              }),
+                              "_blank",
+                              "noopener,noreferrer"
+                            );
+                          } else {
+                            setDetailId(m.id);
+                          }
                         }
                       }}
                     >
@@ -431,6 +457,18 @@ export function MeetingsWorkspacePanel({
                             läuft
                           </span>
                         ) : null}
+                        {live ? (
+                          <button
+                            type="button"
+                            className="text-[10px] font-normal text-cyan-300/90 underline underline-offset-2 hover:text-cyan-100"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDetailId(m.id);
+                            }}
+                          >
+                            Infos
+                          </button>
+                        ) : null}
                       </div>
                       <div className="text-xs text-cyan-200/70 mt-1 flex items-center gap-1">
                         <CalendarDays className="h-3.5 w-3.5" />
@@ -440,7 +478,11 @@ export function MeetingsWorkspacePanel({
                         <Users className="h-3 w-3" />
                         {m.participantUserIds.length + 1} Teilnehmer (inkl. Organisator)
                       </div>
-                      <p className="text-[10px] text-white/50 mt-1.5">Tippen für Details · unten direkt Video</p>
+                      <p className="text-[10px] text-white/50 mt-1.5">
+                        {live
+                          ? "Klick: Video in neuem Tab · „Infos“ für Teilnehmerliste"
+                          : "Tippen für Details · rechts Video starten"}
+                      </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 shrink-0 sm:flex-col sm:items-stretch sm:justify-center">
                       <a
