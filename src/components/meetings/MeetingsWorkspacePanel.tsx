@@ -411,14 +411,30 @@ export function MeetingsWorkspacePanel({
                 return (
                   <div
                     key={m.id}
-                    className="w-full rounded-2xl border border-white/10 bg-black/25 hover:border-cyan-400/25 hover:bg-white/[0.04] p-4 transition-colors"
+                    className="w-full rounded-2xl border border-white/10 bg-black/25 hover:border-cyan-400/25 hover:bg-white/[0.04] p-4 transition-colors flex flex-col gap-3"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        className="min-w-0 flex-1 text-left cursor-pointer rounded-xl -m-1 p-1"
-                        onClick={() => {
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      className="min-w-0 text-left cursor-pointer rounded-xl -m-1 p-1"
+                      onClick={() => {
+                        if (live) {
+                          window.open(
+                            videoMeetingPath({
+                              workspaceId,
+                              meetingId: m.id,
+                              title: m.title,
+                            }),
+                            "_blank",
+                            "noopener,noreferrer"
+                          );
+                        } else {
+                          setDetailId(m.id);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
                           if (live) {
                             window.open(
                               videoMeetingPath({
@@ -432,100 +448,86 @@ export function MeetingsWorkspacePanel({
                           } else {
                             setDetailId(m.id);
                           }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            if (live) {
-                              window.open(
-                                videoMeetingPath({
-                                  workspaceId,
-                                  meetingId: m.id,
-                                  title: m.title,
-                                }),
-                                "_blank",
-                                "noopener,noreferrer"
-                              );
-                            } else {
-                              setDetailId(m.id);
-                            }
-                          }
-                        }}
-                      >
-                        <div className="font-medium text-white flex items-center gap-2 flex-wrap pr-1">
-                          {m.title}
-                          {live ? (
-                            <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-200 border border-emerald-400/40 animate-pulse">
-                              läuft
-                            </span>
-                          ) : null}
-                          {live ? (
-                            <button
-                              type="button"
-                              className="text-[10px] font-normal text-cyan-300/90 underline underline-offset-2 hover:text-cyan-100"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDetailId(m.id);
-                              }}
-                            >
-                              Infos
-                            </button>
-                          ) : null}
-                        </div>
-                        <div className="text-xs text-cyan-200/70 mt-1 flex items-center gap-1">
-                          <CalendarDays className="h-3.5 w-3.5" />
-                          {formatRange(m.startsAt, m.endsAt)}
-                        </div>
-                        <div className="text-[11px] text-white/90 mt-1 flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          {m.participantUserIds.length + 1} Teilnehmer (inkl. Organisator)
-                        </div>
-                        <p className="text-[10px] text-white/50 mt-1.5">
-                          {live
-                            ? "Klick links: Video · „Infos“: Teilnehmer · Rechts: Beitreten"
-                            : "Links tippen für Details · Beitreten rechts"}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0 pt-0.5">
-                        <a
-                          href={videoMeetingPath({
-                            workspaceId,
-                            meetingId: m.id,
-                            title: m.title,
-                          })}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`inline-flex items-center justify-center gap-1 rounded-xl px-2.5 py-2 text-xs font-semibold no-underline whitespace-nowrap ${
-                            live
-                              ? "bg-gradient-to-r from-emerald-500/40 to-cyan-500/35 border border-emerald-400/50 text-white animate-pulse"
-                              : "bg-violet-500/25 border border-violet-400/40 text-violet-100 hover:opacity-95"
-                          }`}
-                          title="Video in neuem Tab"
-                        >
-                          <Video className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                          Beitreten
-                        </a>
-                        {/* Papierkorb nur für den Ersteller — serverseitig ebenfalls in deleteWorkspaceMeeting geprüft */}
-                        {m.createdByUserId === currentUserId ? (
-                          <Button
+                        }
+                      }}
+                    >
+                      <div className="font-medium text-white flex items-center gap-2 flex-wrap">
+                        {m.title}
+                        {live ? (
+                          <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-200 border border-emerald-400/40 animate-pulse">
+                            läuft
+                          </span>
+                        ) : null}
+                        {live ? (
+                          <button
                             type="button"
-                            variant="ghost"
-                            onClick={() => {
-                              if (confirm("Meeting löschen? Kalendereintrag wird entfernt.")) {
-                                void onDeleteMeeting(m.id).then(() => {
-                                  onRefreshMeetings();
-                                  setDetailId(null);
-                                });
-                              }
+                            className="text-[10px] font-normal text-cyan-300/90 underline underline-offset-2 hover:text-cyan-100"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDetailId(m.id);
                             }}
-                            className="rounded-xl h-9 w-9 p-0 text-red-300/80 hover:bg-red-500/15 hover:text-red-200"
-                            aria-label="Meeting löschen (nur Organisator)"
-                            title="Meeting löschen — nur du als Organisator"
                           >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                            Infos
+                          </button>
                         ) : null}
                       </div>
+                      <div className="text-xs text-cyan-200/70 mt-1 flex items-center gap-1">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        {formatRange(m.startsAt, m.endsAt)}
+                      </div>
+                      <div className="text-[11px] text-white/90 mt-1 flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        {m.participantUserIds.length + 1} Teilnehmer (inkl. Organisator)
+                      </div>
+                      <p className="text-[10px] text-white/50 mt-1.5">
+                        {live
+                          ? "Klick auf diesen Bereich: Video · „Infos“: Teilnehmerliste"
+                          : "Tippen für Details zum Termin"}
+                      </p>
+                    </div>
+                    {/* Eigene Zeile: wird nicht vom seitlichen Overflow der Karte abgeschnitten */}
+                    <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-white/10">
+                      <button
+                        type="button"
+                        className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-md ${
+                          live
+                            ? "bg-gradient-to-r from-emerald-500/50 to-cyan-600/45 border border-emerald-400/60 text-white animate-pulse"
+                            : "bg-violet-500/30 border border-violet-400/50 text-violet-50 hover:bg-violet-500/40"
+                        }`}
+                        onClick={() =>
+                          window.open(
+                            videoMeetingPath({
+                              workspaceId,
+                              meetingId: m.id,
+                              title: m.title,
+                            }),
+                            "_blank",
+                            "noopener,noreferrer"
+                          )
+                        }
+                      >
+                        <Video className="h-4 w-4 shrink-0" aria-hidden />
+                        Beitreten
+                      </button>
+                      {m.createdByUserId === currentUserId ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => {
+                            if (confirm("Meeting löschen? Kalendereintrag wird entfernt.")) {
+                              void onDeleteMeeting(m.id).then(() => {
+                                onRefreshMeetings();
+                                setDetailId(null);
+                              });
+                            }
+                          }}
+                          className="rounded-xl h-11 w-11 p-0 text-red-300/90 hover:bg-red-500/15 hover:text-red-100 border border-red-400/30"
+                          aria-label="Meeting löschen (nur Organisator)"
+                          title="Meeting löschen — nur du als Organisator"
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </Button>
+                      ) : null}
                     </div>
                   </div>
                 );
