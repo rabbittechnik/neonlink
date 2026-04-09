@@ -495,54 +495,58 @@ export function MeetingsWorkspacePanel({
         >
           <button
             type="button"
-            className="absolute inset-0 cursor-default"
-            aria-label="Schliessen"
+            className="absolute inset-0 z-0 cursor-default"
+            aria-label="Dialog schliessen (Hintergrund)"
             onClick={() => setDetailId(null)}
           />
-          <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl border border-white/15 bg-[#0c1428] p-5 shadow-xl">
-            <h3 className="text-lg font-semibold text-white pr-8">{detail.title}</h3>
-            <p className="text-xs text-cyan-200/80 mt-1">{formatRange(detail.startsAt, detail.endsAt)}</p>
-            <a
-              href={videoMeetingPath({
-                workspaceId,
-                meetingId: detail.id,
-                title: detail.title,
-              })}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setDetailId(null)}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500/35 to-cyan-600/35 border border-emerald-400/50 text-white font-semibold py-6 text-base hover:from-emerald-500/45 hover:to-cyan-600/45 shadow-[0_0_24px_rgba(34,211,238,0.18)] no-underline"
-            >
-              <Video className="h-5 w-5 shrink-0" />
-              Jetzt beitreten (neuer Tab · Jitsi)
-            </a>
-            <p className="text-[10px] text-white/55 mt-2 leading-snug">
-              Öffnet den Video-Raum auf einer eigenen Seite (voller Platz). Mikrofon/Kamera freigeben;
-              Bildschirm in Jitsi über die Werkzeugleiste.
-            </p>
-            {detail.description ? (
-              <p className="text-sm text-white/90 mt-4 leading-relaxed border-t border-white/10 pt-3">{detail.description}</p>
-            ) : null}
-            <div className="mt-4 text-xs text-white/90 border-t border-white/10 pt-3">
-              <div className="font-medium text-white mb-1">Teilnehmer</div>
-              <ul className="space-y-1">
-                <li>• {namesById[detail.createdByUserId] ?? "Organisator"} (Organisator)</li>
-                {detail.participantUserIds.map((id) => (
-                  <li key={id}>• {namesById[id] ?? id}</li>
-                ))}
-              </ul>
+          <div className="relative z-10 flex w-full max-w-md max-h-[90vh] flex-col overflow-hidden rounded-3xl border border-white/15 bg-[#0c1428] shadow-xl">
+            <div className="min-h-0 flex-1 overflow-y-auto p-5 space-y-3">
+              <h3 className="text-lg font-semibold text-white pr-2">{detail.title}</h3>
+              <p className="text-xs text-cyan-200/80">{formatRange(detail.startsAt, detail.endsAt)}</p>
+              <p className="text-[10px] text-white/55 leading-snug">
+                Video läuft in einem <strong className="text-cyan-100/90">neuen Tab</strong> (Hauptseite bleibt offen).
+                Mikrofon/Kamera freigeben; Bildschirmfreigabe in der Jitsi-Leiste.
+              </p>
+              {detail.description ? (
+                <p className="text-sm text-white/90 leading-relaxed border-t border-white/10 pt-3">{detail.description}</p>
+              ) : null}
+              <div className="text-xs text-white/90 border-t border-white/10 pt-3">
+                <div className="font-medium text-white mb-1">Teilnehmer</div>
+                <ul className="space-y-1">
+                  <li>• {namesById[detail.createdByUserId] ?? "Organisator"} (Organisator)</li>
+                  {detail.participantUserIds.map((id) => (
+                    <li key={id}>• {namesById[id] ?? id}</li>
+                  ))}
+                </ul>
+              </div>
+              <p className="text-[10px] text-white/45 pb-1">
+                In Jitsi als <span className="text-cyan-200/90">{currentUserDisplayName}</span>.
+              </p>
             </div>
-            <p className="text-[10px] text-white/45 mt-2">
-              Als <span className="text-cyan-200/90">{currentUserDisplayName}</span> in Jitsi.
-            </p>
-            <Button
-              type="button"
-              variant="ghost"
-              className="mt-3 w-full rounded-xl text-white/80"
-              onClick={() => setDetailId(null)}
-            >
-              Schliessen
-            </Button>
+            <div className="shrink-0 border-t border-white/15 bg-[#0c1428] p-4 space-y-2">
+              <a
+                href={videoMeetingPath({
+                  workspaceId,
+                  meetingId: detail.id,
+                  title: detail.title,
+                })}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setDetailId(null)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500/45 to-cyan-600/40 border border-emerald-400/55 text-white font-semibold py-4 text-base hover:from-emerald-500/55 hover:to-cyan-600/50 shadow-[0_0_28px_rgba(34,211,238,0.22)] no-underline"
+              >
+                <Video className="h-5 w-5 shrink-0" aria-hidden />
+                Jetzt beitreten
+              </a>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full rounded-xl text-white/80 hover:bg-white/5"
+                onClick={() => setDetailId(null)}
+              >
+                Schliessen
+              </Button>
+            </div>
           </div>
         </div>
       ) : null}
