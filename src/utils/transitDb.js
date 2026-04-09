@@ -1,8 +1,8 @@
 import { mapHafasDeparture } from "@/utils/transitHafasMap";
-/** Öffentliche HAFAS-REST-Instanz Berlin/Brandenburg — CORS im Browser. */
-export const BVG_BASE = "https://v6.bvg.transport.rest";
-export async function bvgFetchNearby(latitude, longitude, results = 8) {
-    const u = new URL(`${BVG_BASE}/locations/nearby`);
+/** Deutsche Bahn HAFAS (bundesweit) — CORS laut Projekt-Doku; bei 503 ggf. später erneut versuchen. */
+export const DB_BASE = "https://v6.db.transport.rest";
+export async function dbFetchNearby(latitude, longitude, results = 8) {
+    const u = new URL(`${DB_BASE}/locations/nearby`);
     u.searchParams.set("latitude", String(latitude));
     u.searchParams.set("longitude", String(longitude));
     u.searchParams.set("results", String(results));
@@ -14,13 +14,13 @@ export async function bvgFetchNearby(latitude, longitude, results = 8) {
     const data = (await res.json());
     return data
         .filter((x) => x.type === "stop" && x.id && x.name)
-        .map((x) => ({ id: x.id, name: x.name, provider: "bvg", distance: x.distance }));
+        .map((x) => ({ id: x.id, name: x.name, provider: "db", distance: x.distance }));
 }
-export async function bvgSearchStops(query, results = 8) {
+export async function dbSearchStops(query, results = 8) {
     const q = query.trim();
     if (q.length < 2)
         return [];
-    const u = new URL(`${BVG_BASE}/locations`);
+    const u = new URL(`${DB_BASE}/locations`);
     u.searchParams.set("query", q);
     u.searchParams.set("results", String(results));
     u.searchParams.set("poi", "false");
@@ -31,13 +31,14 @@ export async function bvgSearchStops(query, results = 8) {
     const data = (await res.json());
     return data
         .filter((x) => x.type === "stop" && x.id && x.name)
-        .map((x) => ({ id: x.id, name: x.name, provider: "bvg" }));
+        .map((x) => ({ id: x.id, name: x.name, provider: "db" }));
 }
-export async function bvgFetchDepartures(stopId, max = 10) {
-    const u = new URL(`${BVG_BASE}/stops/${encodeURIComponent(stopId)}/departures`);
-    u.searchParams.set("duration", "90");
+export async function dbFetchDepartures(stopId, max = 10) {
+    const u = new URL(`${DB_BASE}/stops/${encodeURIComponent(stopId)}/departures`);
+    u.searchParams.set("duration", "120");
     u.searchParams.set("results", String(Math.max(max, 15)));
     u.searchParams.set("remarks", "false");
+    u.searchParams.set("language", "de");
     const res = await fetch(u.toString());
     if (!res.ok)
         throw new Error(`departures_http_${res.status}`);

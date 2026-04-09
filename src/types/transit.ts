@@ -1,5 +1,8 @@
 /** Einheitliches Modell für die Abfahrts-Anzeige (BVG/DB-kompatibel mappbar). */
 
+/** Datenquelle: BVG (v6.bvg) im Berlin/Brandenburg-Gebiet, sonst DB (v6.db). */
+export type TransitProvider = "bvg" | "db";
+
 export type TransitLineType = "SBAHN" | "ICE" | "RE" | "BUS" | "SUBWAY" | "TRAM" | "OTHER";
 
 export type TransitDeparture = {
@@ -20,5 +23,7 @@ export type TransitDeparture = {
 export type TransitStopRef = {
   id: string;
   name: string;
+  /** Welche API die Haltestelle bedient (IDs sind nicht übertragbar). */
+  provider: TransitProvider;
   distance?: number;
 };

@@ -9,21 +9,25 @@ import {
   TrainFront,
   X,
 } from "lucide-react";
-import type { TransitDeparture, TransitLineType, TransitStopRef } from "@/types/transit";
-import {
-  bvgFetchDepartures,
-  bvgFetchNearby,
-  bvgSearchStops,
-} from "@/utils/transitBvg";
+import type { TransitDeparture, TransitLineType, TransitProvider, TransitStopRef } from "@/types/transit";
+import { bvgFetchDepartures, bvgFetchNearby, bvgSearchStops } from "@/utils/transitBvg";
+import { dbFetchDepartures, dbFetchNearby, dbSearchStops } from "@/utils/transitDb";
+import { providerForCoordinates } from "@/utils/transitGeo";
 
 const LS_COLLAPSED = "neonlink.departures.collapsed";
 const LS_FAVORITES = "neonlink.departures.favorites";
 const LS_STOP = "neonlink.departures.selectedStop";
+const LS_SOURCE_MODE = "neonlink.departures.sourceMode";
+const LS_LAST_AUTO = "neonlink.departures.lastAutoProvider";
 
+/** Standard für Südwest (z. B. Tübingen/Bodelshausen) — DB-Haltestellen-ID. */
 const DEFAULT_STOP: TransitStopRef = {
-  id: "900017101",
-  name: "U Mehringdamm (Berlin)",
+  id: "8000196",
+  name: "Tübingen Hbf",
+  provider: "db",
 };
+
+export type SourceMode = "auto" | TransitProvider;
 
 function stripCitySuffix(name: string): string {
   return name.replace(/\s*\([^)]*\)\s*$/u, "").trim();
@@ -37,6 +41,51 @@ function loadJson<T>(key: string, fallback: T): T {
   } catch {
     return fallback;
   }
+}
+
+function tryNormalizeStop(raw: unknown): TransitStopRef | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Partial<TransitStopRef>;
+  if (typeof o.id !== "string" || typeof o.name !== "string") return null;
+  const provider: TransitProvider =
+    o.provider === "bvg" || o.provider === "db"
+      ? o.provider
+      : /^9\d{5,}/.test(o.id)
+        ? "bvg"
+        : "db";
+  return {
+    id: o.id,
+    name: o.name,
+    provider,
+    distance: typeof o.distance === "number" ? o.distance : undefined,
+  };
+}
+
+function loadInitialStop(): TransitStopRef {
+  const raw = loadJson<unknown>(LS_STOP, undefined);
+  return tryNormalizeStop(raw) ?? DEFAULT_STOP;
+}
+
+function loadFavorites(): TransitStopRef[] {
+  const raw = loadJson<unknown[]>(LS_FAVORITES, []);
+  if (!Array.isArray(raw)) return [];
+  const out: TransitStopRef[] = [];
+  for (const item of raw) {
+    const s = tryNormalizeStop(item);
+    if (s) out.push(s);
+  }
+  return out.slice(0, 12);
+}
+
+function loadSourceMode(): SourceMode {
+  const v = loadJson<string | null>(LS_SOURCE_MODE, null);
+  if (v === "auto" || v === "bvg" || v === "db") return v;
+  return "auto";
+}
+
+function loadLastAuto(): TransitProvider | null {
+  const v = loadJson<string | null>(LS_LAST_AUTO, null);
+  return v === "bvg" || v === "db" ? v : null;
 }
 
 function lineBadgeClass(t: TransitLineType): string {
@@ -64,10 +113,18 @@ function minutesClass(m: number): string {
   return "text-white/95";
 }
 
+function sourceBadgeLabel(mode: SourceMode, lastAuto: TransitProvider | null, stop: TransitStopRef): string {
+  if (mode === "bvg") return "BVG";
+  if (mode === "db") return "DB";
+  return lastAuto ? `Auto → ${lastAuto.toUpperCase()}` : `Auto → ${stop.provider.toUpperCase()}`;
+}
+
 export function DeparturesDashboard() {
-  const [collapsed, setCollapsed] = useState(() => loadJson(LS_COLLAPSED, false));
-  const [stop, setStop] = useState<TransitStopRef>(() => loadJson(LS_STOP, DEFAULT_STOP));
-  const [favorites, setFavorites] = useState<TransitStopRef[]>(() => loadJson(LS_FAVORITES, []));
+  const [collapsed, setCollapsed] = useState(() => loadJson(LS_COLLAPSED, true));
+  const [stop, setStop] = useState<TransitStopRef>(loadInitialStop);
+  const [favorites, setFavorites] = useState<TransitStopRef[]>(loadFavorites);
+  const [sourceMode, setSourceMode] = useState<SourceMode>(loadSourceMode);
+  const [lastAutoProvider, setLastAutoProvider] = useState<TransitProvider | null>(loadLastAuto);
   const [rows, setRows] = useState<TransitDeparture[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +135,12 @@ export function DeparturesDashboard() {
   const [detail, setDetail] = useState<TransitDeparture | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tick = useRef(0);
+
+  const effectiveSearchProvider = useMemo((): TransitProvider => {
+    if (sourceMode === "bvg") return "bvg";
+    if (sourceMode === "db") return "db";
+    return lastAutoProvider ?? stop.provider;
+  }, [sourceMode, lastAutoProvider, stop.provider]);
 
   useEffect(() => {
     localStorage.setItem(LS_COLLAPSED, JSON.stringify(collapsed));
@@ -91,6 +154,15 @@ export function DeparturesDashboard() {
     localStorage.setItem(LS_FAVORITES, JSON.stringify(favorites));
   }, [favorites]);
 
+  useEffect(() => {
+    localStorage.setItem(LS_SOURCE_MODE, JSON.stringify(sourceMode));
+  }, [sourceMode]);
+
+  useEffect(() => {
+    if (lastAutoProvider) localStorage.setItem(LS_LAST_AUTO, JSON.stringify(lastAutoProvider));
+    else localStorage.removeItem(LS_LAST_AUTO);
+  }, [lastAutoProvider]);
+
   const loadDepartures = useCallback(async () => {
     if (collapsed) return;
     setLoading(true);
@@ -98,17 +170,24 @@ export function DeparturesDashboard() {
     tick.current += 1;
     const myTick = tick.current;
     try {
-      const next = await bvgFetchDepartures(stop.id, 10);
+      const next =
+        stop.provider === "bvg"
+          ? await bvgFetchDepartures(stop.id, 10)
+          : await dbFetchDepartures(stop.id, 10);
       if (myTick !== tick.current) return;
       setRows(next);
     } catch {
       if (myTick !== tick.current) return;
-      setError("Abfahrten konnten nicht geladen werden (Netzwerk oder API).");
+      setError(
+        stop.provider === "db"
+          ? "Abfahrten (DB) konnten nicht geladen werden — Dienst ggf. kurz nicht erreichbar (503) oder Netzwerk."
+          : "Abfahrten konnten nicht geladen werden (Netzwerk oder API)."
+      );
       setRows([]);
     } finally {
       if (myTick === tick.current) setLoading(false);
     }
-  }, [stop.id, collapsed]);
+  }, [stop.id, stop.provider, collapsed]);
 
   useEffect(() => {
     void loadDepartures();
@@ -133,25 +212,29 @@ export function DeparturesDashboard() {
     }
     if (searchTimer.current) clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(() => {
-      void bvgSearchStops(q, 8)
+      const fn = effectiveSearchProvider === "bvg" ? bvgSearchStops : dbSearchStops;
+      void fn(q, 8)
         .then(setSuggestions)
         .catch(() => setSuggestions([]));
     }, 320);
     return () => {
       if (searchTimer.current) clearTimeout(searchTimer.current);
     };
-  }, [search]);
+  }, [search, effectiveSearchProvider]);
 
   const toggleFavorite = useCallback(() => {
     setFavorites((prev) => {
-      const exists = prev.some((p) => p.id === stop.id);
-      if (exists) return prev.filter((p) => p.id !== stop.id);
+      const exists = prev.some((p) => p.id === stop.id && p.provider === stop.provider);
+      if (exists) return prev.filter((p) => !(p.id === stop.id && p.provider === stop.provider));
       if (prev.length >= 12) return prev;
       return [...prev, stop];
     });
   }, [stop]);
 
-  const isFavorite = useMemo(() => favorites.some((p) => p.id === stop.id), [favorites, stop.id]);
+  const isFavorite = useMemo(
+    () => favorites.some((p) => p.id === stop.id && p.provider === stop.provider),
+    [favorites, stop]
+  );
 
   const requestNearby = useCallback(() => {
     setGeoStatus(null);
@@ -162,17 +245,30 @@ export function DeparturesDashboard() {
     setGeoStatus("Standort wird ermittelt …");
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        const inferred = providerForCoordinates(lat, lon);
+        setLastAutoProvider(inferred);
+        const useApi: TransitProvider =
+          sourceMode === "auto" ? inferred : sourceMode === "bvg" ? "bvg" : "db";
         try {
-          const list = await bvgFetchNearby(pos.coords.latitude, pos.coords.longitude, 8);
+          const list =
+            useApi === "bvg"
+              ? await bvgFetchNearby(lat, lon, 8)
+              : await dbFetchNearby(lat, lon, 8);
           setNearby(list);
           setGeoStatus(
             list.length
-              ? `${list.length} Haltestellen in der Nähe (über GPS/WLAN-unterstützte Positionsbestimmung).`
+              ? `${list.length} Haltestellen (${useApi.toUpperCase()}) · ${sourceMode === "auto" ? `Auto: ${inferred.toUpperCase()} (${Math.round(lat * 100) / 100}°, ${Math.round(lon * 100) / 100}°)` : "Manuelle Quelle"}`
               : "Keine Haltestellen gefunden."
           );
           if (list[0]) setStop(list[0]);
         } catch {
-          setGeoStatus("Haltestellen-Suche fehlgeschlagen.");
+          setGeoStatus(
+            useApi === "db"
+              ? "Haltestellen-Suche (DB) fehlgeschlagen — Dienst ggf. vorübergehend nicht erreichbar."
+              : "Haltestellen-Suche fehlgeschlagen."
+          );
           setNearby([]);
         }
       },
@@ -182,7 +278,7 @@ export function DeparturesDashboard() {
       },
       { enableHighAccuracy: true, timeout: 14_000, maximumAge: 60_000 }
     );
-  }, []);
+  }, [sourceMode]);
 
   return (
     <motion.section
@@ -193,7 +289,6 @@ export function DeparturesDashboard() {
           "0 0 0 1px rgba(34,211,238,0.08), 0 12px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06), 0 0 40px rgba(8,47,73,0.35)",
       }}
     >
-      {/* Kopfzeile — Bahnhof-Blau */}
       <div className="flex flex-wrap items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 border-b border-white/10 bg-gradient-to-r from-[#0c2a4a] via-[#0a2240] to-[#0c2a4a]">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <TrainFront className="h-5 w-5 text-cyan-200 shrink-0 drop-shadow-[0_0_10px_rgba(34,211,238,0.45)]" />
@@ -201,8 +296,11 @@ export function DeparturesDashboard() {
             <div className="text-[10px] uppercase tracking-[0.2em] text-cyan-100/90 font-semibold">
               Verkehr · Abfahrten
             </div>
-            <div className="text-sm sm:text-base font-bold text-white truncate leading-tight">
-              {stop.name}
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
+              <div className="text-sm sm:text-base font-bold text-white truncate leading-tight">{stop.name}</div>
+              <span className="text-[10px] px-2 py-0.5 rounded-full border border-white/20 bg-white/10 text-cyan-100/95 shrink-0">
+                {stop.provider.toUpperCase()} · {sourceBadgeLabel(sourceMode, lastAutoProvider, stop)}
+              </span>
             </div>
           </div>
         </div>
@@ -240,11 +338,37 @@ export function DeparturesDashboard() {
             className="overflow-hidden"
           >
             <div className="px-3 sm:px-4 py-3 space-y-3 border-b border-white/10 bg-[#071018]/80">
+              <div className="flex flex-wrap gap-2 items-center">
+                <span className="text-[10px] text-white/50 uppercase tracking-wide">Datenquelle</span>
+                {(["auto", "bvg", "db"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setSourceMode(m)}
+                    className={`rounded-full px-2.5 py-1 text-[11px] border transition-colors ${
+                      sourceMode === m
+                        ? "border-cyan-400/60 bg-cyan-500/25 text-cyan-50"
+                        : "border-white/15 bg-white/5 text-white/75 hover:bg-white/10"
+                    }`}
+                  >
+                    {m === "auto" ? "Auto (Standort)" : m.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-white/45 leading-snug">
+                <strong className="text-white/70">Auto:</strong> ca. 95 km um Berlin → BVG, sonst DB (z.&nbsp;B.
+                Tübingen, Bodelshausen). <strong className="text-white/70">Manuell:</strong> feste Quelle für Suche und
+                „In der Nähe“. Aktuelle Haltestelle kommt von {stop.provider.toUpperCase()}-IDs.
+              </p>
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                 <div className="flex-1 min-w-0 relative">
                   <input
                     className="w-full rounded-xl border border-white/15 bg-[#0a1628] px-3 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
-                    placeholder="Haltestelle suchen (z. B. Alexanderplatz) …"
+                    placeholder={
+                      effectiveSearchProvider === "bvg"
+                        ? "Haltestelle suchen (z. B. Alexanderplatz) …"
+                        : "Haltestelle suchen (z. B. Tübingen Hbf, Bodelshausen) …"
+                    }
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
@@ -252,7 +376,7 @@ export function DeparturesDashboard() {
                     <div className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto rounded-xl border border-white/15 bg-[#0f172a] shadow-xl">
                       {suggestions.map((s) => (
                         <button
-                          key={s.id}
+                          key={`${s.provider}-${s.id}`}
                           type="button"
                           className="w-full text-left px-3 py-2 text-sm text-white hover:bg-white/10 border-b border-white/5 last:border-0"
                           onClick={() => {
@@ -261,7 +385,8 @@ export function DeparturesDashboard() {
                             setSuggestions([]);
                           }}
                         >
-                          {s.name}
+                          <span>{s.name}</span>
+                          <span className="ml-2 text-[10px] text-white/40">{s.provider.toUpperCase()}</span>
                         </button>
                       ))}
                     </div>
@@ -283,16 +408,17 @@ export function DeparturesDashboard() {
                   </span>
                   {favorites.map((f) => (
                     <button
-                      key={f.id}
+                      key={`${f.provider}-${f.id}`}
                       type="button"
                       onClick={() => setStop(f)}
                       className={`rounded-full px-2.5 py-1 text-[11px] border transition-colors ${
-                        f.id === stop.id
+                        f.id === stop.id && f.provider === stop.provider
                           ? "border-cyan-400/60 bg-cyan-500/25 text-cyan-50"
                           : "border-white/15 bg-white/5 text-white/80 hover:bg-white/10"
                       }`}
                     >
                       {stripCitySuffix(f.name)}
+                      <span className="text-white/35 ml-1">{f.provider.toUpperCase()}</span>
                     </button>
                   ))}
                 </div>
@@ -304,11 +430,11 @@ export function DeparturesDashboard() {
                   </span>
                   {nearby.map((n) => (
                     <button
-                      key={n.id}
+                      key={`${n.provider}-${n.id}`}
                       type="button"
                       onClick={() => setStop(n)}
                       className={`rounded-full px-2.5 py-1 text-[11px] border transition-colors ${
-                        n.id === stop.id
+                        n.id === stop.id && n.provider === stop.provider
                           ? "border-emerald-400/50 bg-emerald-500/20 text-emerald-50"
                           : "border-white/15 bg-white/5 text-white/80 hover:bg-white/10"
                       }`}
@@ -367,7 +493,9 @@ export function DeparturesDashboard() {
                           onClick={() => setDetail(r)}
                           className="border-b border-white/[0.07] hover:bg-white/[0.04] cursor-pointer group"
                         >
-                          <td className={`py-2.5 pl-3 sm:pl-4 pr-2 align-middle font-bold text-xl tabular-nums ${minutesClass(r.minutes)}`}>
+                          <td
+                            className={`py-2.5 pl-3 sm:pl-4 pr-2 align-middle font-bold text-xl tabular-nums ${minutesClass(r.minutes)}`}
+                          >
                             {r.minutes}
                             <span className="text-[10px] font-normal text-white/50 block leading-none">min</span>
                           </td>
@@ -399,9 +527,10 @@ export function DeparturesDashboard() {
                   </tbody>
                 </table>
               </div>
-              <p className="text-[10px] text-white/35 px-3 sm:px-4 py-2 border-t border-white/10">
-                Daten: BVG-Region (v6.bvg.transport.rest) · Live ca. alle 45–60 s · Kein WLAN-Hotspot-Zugriff im Browser —
-                „In der Nähe“ nutzt GPS/Positionsdienst.
+              <p className="text-[10px] text-white/35 px-3 sm:px-4 py-2 border-t border-white/10 leading-relaxed">
+                Daten: <strong className="text-white/50">BVG</strong> (v6.bvg.transport.rest, Berlin/Brandenburg) und{" "}
+                <strong className="text-white/50">DB</strong> (v6.db.transport.rest, bundesweit) · Aktualisierung ca. alle
+                45–60&nbsp;s · „In der Nähe“: GPS (ohne WLAN-SSID im Browser).
               </p>
             </div>
           </motion.div>
@@ -423,7 +552,7 @@ export function DeparturesDashboard() {
           >
             <div className="flex justify-between items-start gap-2 mb-3">
               <div>
-                <div className="text-xs text-white/50">Abfahrt</div>
+                <div className="text-xs text-white/50">Abfahrt ({stop.provider.toUpperCase()})</div>
                 <div className="text-lg font-bold">{detail.line}</div>
                 <div className="text-sm text-white/80 mt-1">{detail.destination}</div>
               </div>
