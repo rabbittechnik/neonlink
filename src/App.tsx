@@ -11,6 +11,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import LoginPage from "./pages/LoginPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import ImportantDocumentsPage from "./pages/ImportantDocumentsPage";
+import VideoMeetingPage from "./pages/VideoMeetingPage";
 
 function LoginGate() {
   const { user, ready } = useAuth();
@@ -88,6 +89,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <ImportantDocumentsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/meet/video"
+            element={
+              <ProtectedRoute>
+                <VideoMeetingPage />
               </ProtectedRoute>
             }
           />

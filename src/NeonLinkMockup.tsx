@@ -74,6 +74,7 @@ import {
   type WorkspaceChatRoom,
 } from "@/utils/workspaceChats";
 import { pickSharedWorkspaceId } from "@/utils/workspacePick";
+import { videoMeetingPath } from "@/utils/jitsiRoomNames";
 import { playNotificationSound } from "@/utils/notificationSound";
 
 const iconBySection: Record<SectionId, React.ComponentType<{ className?: string }>> = {
@@ -2587,12 +2588,19 @@ export default function NeonLinkMockup() {
               <Button
                 type="button"
                 onClick={() => {
-                  if (activeWorkspaceId && meetingRooms.length > 0) {
-                    setMainView("meetings");
-                    setActiveMeetingRoomId((prev) =>
-                      prev && meetingRooms.some((r) => r.id === prev) ? prev : meetingRooms[0]!.id
-                    );
-                  }
+                  if (!activeWorkspaceId || meetingRooms.length === 0) return;
+                  const rid =
+                    activeMeetingRoomId && meetingRooms.some((r) => r.id === activeMeetingRoomId)
+                      ? activeMeetingRoomId
+                      : meetingRooms[0]!.id;
+                  const room = meetingRooms.find((r) => r.id === rid)!;
+                  navigate(
+                    videoMeetingPath({
+                      workspaceId: activeWorkspaceId,
+                      roomId: rid,
+                      title: `Live: ${room.name}`,
+                    })
+                  );
                 }}
                 disabled={!activeWorkspaceId || meetingRooms.length === 0}
                 className="rounded-2xl bg-violet-500/20 border border-violet-300/30 text-violet-100 hover:bg-violet-500/30 shrink-0 inline-flex items-center gap-2 px-3 sm:px-4 py-2 text-sm whitespace-nowrap disabled:opacity-40"

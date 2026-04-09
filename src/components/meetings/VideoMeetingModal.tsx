@@ -1,5 +1,6 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
+import { buildJitsiMeetIframeSrc } from "@/utils/jitsiRoomNames";
 
 type Props = {
   open: boolean;
@@ -12,8 +13,7 @@ type Props = {
 /** Echte Videokonferenz über Jitsi Meet (Browser: Kamera/Mikro). */
 export function VideoMeetingModal({ open, onClose, roomName, title }: Props) {
   if (!open) return null;
-  const safe = roomName.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80) || "NeonLinkMeet";
-  const src = `https://meet.jit.si/${encodeURIComponent(safe)}#config.prejoinPageEnabled=false`;
+  const src = buildJitsiMeetIframeSrc(roomName);
 
   return (
     <div className="fixed inset-0 z-[200] flex flex-col bg-[#020617]">

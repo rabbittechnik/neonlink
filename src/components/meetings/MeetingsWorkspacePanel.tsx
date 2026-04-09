@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { CalendarDays, Pencil, Plus, Trash2, Users, Video } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ApiMeeting, ApiMeetingRoom } from "@/types/meetings";
 import type { SectionId } from "@/types/collab";
+import { jitsiRoomForWorkspaceRoom, videoMeetingPath } from "@/utils/jitsiRoomNames";
 import { CreateMeetingModal } from "./CreateMeetingModal";
-import { VideoMeetingModal } from "./VideoMeetingModal";
 
 type Member = { id: string; displayName: string };
 
@@ -48,12 +49,6 @@ function formatRange(startsAt: string, endsAt: string) {
   return `${d} · ${ta} – ${tb}`;
 }
 
-function roomVideoName(workspaceId: string, roomId: string): string {
-  return `NeonLink-Room-${workspaceId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12)}-${roomId
-    .replace(/[^a-zA-Z0-9]/g, "")
-    .slice(0, 24)}`;
-}
-
 export function MeetingsWorkspacePanel({
   workspaceId,
   rooms,
@@ -73,10 +68,9 @@ export function MeetingsWorkspacePanel({
   onDeleteRoom,
   currentUserDisplayName,
 }: Props) {
+  const navigate = useNavigate();
   const [modalOpen, setModalOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
-  const [videoOpen, setVideoOpen] = useState(false);
-  const [jitsiMeeting, setJitsiMeeting] = useState<ApiMeeting | null>(null);
   const [newRoomOpen, setNewRoomOpen] = useState(false);
   const [newRoomName, setNewRoomName] = useState("Neuer Raum");
   const [roomBusy, setRoomBusy] = useState(false);
@@ -91,7 +85,7 @@ export function MeetingsWorkspacePanel({
   const activeRoom = rooms.find((r) => r.id === activeRoomId) ?? null;
   const detail = meetings.find((m) => m.id === detailId) ?? null;
   const nowMs = Date.now();
-  const quickRoomName = activeRoomId ? roomVideoName(workspaceId, activeRoomId) : "";
+  const quickRoomName = activeRoomId ? jitsiRoomForWorkspaceRoom(workspaceId, activeRoomId) : "";
   const quickJoinLink = quickRoomName ? `https://meet.jit.si/${encodeURIComponent(quickRoomName)}` : "";
 
   const copyQuickLink = async () => {
@@ -105,16 +99,14 @@ export function MeetingsWorkspacePanel({
   };
 
   const startRoomNow = () => {
-    if (!activeRoom) return;
-    setJitsiMeeting(null);
-    setVideoOpen(true);
-  };
-
-  /** Eigenes Jitsi pro geplantem Meeting (stabiler Raumname aus Meeting-ID). */
-  const openPlannedMeetingVideo = (m: ApiMeeting) => {
-    setJitsiMeeting(m);
-    setVideoOpen(true);
-    setDetailId(null);
+    if (!activeRoom || !activeRoomId) return;
+    navigate(
+      videoMeetingPath({
+        workspaceId,
+        roomId: activeRoomId,
+        title: `Live: ${activeRoom.name}`,
+      })
+    );
   };
 
   const sendQuickInvites = async () => {
@@ -454,18 +446,21 @@ export function MeetingsWorkspacePanel({
                       <p className="text-[10px] text-white/50 mt-1.5">Tippen für Details · unten direkt Video</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 shrink-0 sm:flex-col sm:items-stretch sm:justify-center">
-                      <Button
-                        type="button"
-                        onClick={() => openPlannedMeetingVideo(m)}
-                        className={`rounded-xl text-sm font-medium ${
+                      <Link
+                        to={videoMeetingPath({
+                          workspaceId,
+                          meetingId: m.id,
+                          title: m.title,
+                        })}
+                        className={`inline-flex items-center justify-center px-4 py-2 rounded-xl text-sm font-medium no-underline ${
                           live
                             ? "bg-gradient-to-r from-emerald-500/40 to-cyan-500/35 border border-emerald-400/50 text-white animate-pulse"
-                            : "bg-violet-500/25 border border-violet-400/40 text-violet-100"
+                            : "bg-violet-500/25 border border-violet-400/40 text-violet-100 hover:opacity-95"
                         }`}
                       >
-                        <Video className="h-4 w-4 mr-1.5 inline" />
+                        <Video className="h-4 w-4 mr-1.5 shrink-0" />
                         {live ? "Jetzt beitreten" : "Video starten"}
-                      </Button>
+                      </Link>
                       {m.createdByUserId === currentUserId ? (
                         <Button
                           type="button"
@@ -505,19 +500,24 @@ export function MeetingsWorkspacePanel({
             aria-label="Schliessen"
             onClick={() => setDetailId(null)}
           />
-          <div className="relative w-full max-w-md rounded-3xl border border-white/15 bg-[#0c1428] p-5 shadow-xl">
+          <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl border border-white/15 bg-[#0c1428] p-5 shadow-xl">
             <h3 className="text-lg font-semibold text-white pr-8">{detail.title}</h3>
             <p className="text-xs text-cyan-200/80 mt-1">{formatRange(detail.startsAt, detail.endsAt)}</p>
-            <Button
-              type="button"
-              className="mt-4 w-full rounded-xl bg-gradient-to-r from-emerald-500/35 to-cyan-600/35 border border-emerald-400/50 text-white font-semibold py-6 text-base hover:from-emerald-500/45 hover:to-cyan-600/45 shadow-[0_0_24px_rgba(34,211,238,0.18)]"
-              onClick={() => openPlannedMeetingVideo(detail)}
+            <Link
+              to={videoMeetingPath({
+                workspaceId,
+                meetingId: detail.id,
+                title: detail.title,
+              })}
+              onClick={() => setDetailId(null)}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500/35 to-cyan-600/35 border border-emerald-400/50 text-white font-semibold py-6 text-base hover:from-emerald-500/45 hover:to-cyan-600/45 shadow-[0_0_24px_rgba(34,211,238,0.18)] no-underline"
             >
-              <Video className="h-5 w-5 mr-2 inline shrink-0" />
-              Video-Call starten (Kamera &amp; Bildschirm)
-            </Button>
+              <Video className="h-5 w-5 shrink-0" />
+              Jetzt beitreten (eigene Seite · Jitsi)
+            </Link>
             <p className="text-[10px] text-white/55 mt-2 leading-snug">
-              Öffnet Jitsi in Vollbild. Mikrofon/Kamera freigeben; Bildschirmübertragung in Jitsi über die Werkzeugleiste.
+              Öffnet den Video-Raum auf einer eigenen Seite (voller Platz). Mikrofon/Kamera freigeben;
+              Bildschirm in Jitsi über die Werkzeugleiste.
             </p>
             {detail.description ? (
               <p className="text-sm text-white/90 mt-4 leading-relaxed border-t border-white/10 pt-3">{detail.description}</p>
@@ -545,22 +545,6 @@ export function MeetingsWorkspacePanel({
           </div>
         </div>
       ) : null}
-
-      <VideoMeetingModal
-        open={videoOpen && Boolean(jitsiMeeting)}
-        onClose={() => {
-          setVideoOpen(false);
-          setJitsiMeeting(null);
-        }}
-        roomName={`NeonLink-${workspaceId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12)}-${(jitsiMeeting?.id ?? "meet").replace(/[^a-zA-Z0-9]/g, "").slice(0, 24)}`}
-        title={jitsiMeeting ? `Video: ${jitsiMeeting.title}` : "Video-Meeting"}
-      />
-      <VideoMeetingModal
-        open={videoOpen && !jitsiMeeting && Boolean(activeRoomId)}
-        onClose={() => setVideoOpen(false)}
-        roomName={quickRoomName}
-        title={activeRoom ? `Live: ${activeRoom.name}` : "Video-Raum"}
-      />
 
       <CreateMeetingModal
         open={modalOpen}
