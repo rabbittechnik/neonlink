@@ -46,15 +46,17 @@ function searchUrl(base: string, query: string, results: number): string {
   return u.toString();
 }
 
-function departuresDurationMinutes(base: string): string {
-  if (base.includes("bvg") || base.includes("vbb") || base.includes("hvv")) return "90";
-  return "120";
+/** Minuten — Suchfenster für Abfahrten (auch nächtliche / erst morgen; früher 90–120 → zu kurz). */
+const DEPARTURES_LOOKAHEAD_MINUTES = 1440;
+
+function departuresDurationMinutes(): string {
+  return String(DEPARTURES_LOOKAHEAD_MINUTES);
 }
 
 function departuresUrl(base: string, stopId: string, limit: number): string {
   const u = new URL(`${base}/stops/${encodeURIComponent(stopId)}/departures`);
-  u.searchParams.set("duration", departuresDurationMinutes(base));
-  u.searchParams.set("results", String(Math.max(limit, 15)));
+  u.searchParams.set("duration", departuresDurationMinutes());
+  u.searchParams.set("results", String(Math.max(limit, 40)));
   u.searchParams.set("remarks", "false");
   if (base.includes("db")) u.searchParams.set("language", "de");
   return u.toString();

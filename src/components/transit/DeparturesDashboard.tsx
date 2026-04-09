@@ -4,6 +4,7 @@ import {
   ChevronDown,
   ChevronUp,
   Check,
+  ExternalLink,
   Loader2,
   MapPin,
   Star,
@@ -12,6 +13,12 @@ import {
 } from "lucide-react";
 import { GERMAN_TRANSIT_VERBUENDE } from "@/constants/germanTransitVerbuende";
 import type { TransitDeparture, TransitLineType, TransitProvider, TransitStopRef } from "@/types/transit";
+import {
+  googleMapsAt,
+  googleMapsSearchUrl,
+  googleMapsTransitDirectionsTo,
+  openStreetMapView,
+} from "@/utils/mapsTransitLinks";
 import {
   transitFetchDepartures,
   transitFetchNearby,
@@ -122,7 +129,19 @@ function lineBadgeClass(t: TransitLineType): string {
 function minutesClass(m: number): string {
   if (m < 3) return "text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.5)]";
   if (m < 10) return "text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.35)]";
+  if (m >= 120) return "text-sky-200/95 drop-shadow-[0_0_6px_rgba(125,211,252,0.2)]";
   return "text-white/95";
+}
+
+/** Anzeige „in 5 h“ statt „300 min“ — auch nächtliche Abfahrten lesbar. */
+function formatDepartureWait(totalMin: number): { main: string; sub: string } {
+  if (totalMin < 60) return { main: String(totalMin), sub: "min" };
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return {
+    main: m === 0 ? `${h} h` : `${h} h ${m}`,
+    sub: "ab jetzt",
+  };
 }
 
 function sourceBadgeLabel(mode: SourceMode, lastAuto: TransitProvider | null, stop: TransitStopRef): string {
@@ -170,6 +189,9 @@ export function DeparturesDashboard() {
   const [suggestions, setSuggestions] = useState<TransitStopRef[]>([]);
   const [nearby, setNearby] = useState<TransitStopRef[]>([]);
   const [geoStatus, setGeoStatus] = useState<string | null>(null);
+  /** Bei fehlgeschlagenem „In der Nähe“: Karten um Standort (extern, kein API-Key). */
+  const [geoMapsFallback, setGeoMapsFallback] = useState<{ lat: number; lon: number } | null>(null);
+  const [searchFetchFailed, setSearchFetchFailed] = useState(false);
   const [detail, setDetail] = useState<TransitDeparture | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tick = useRef(0);
@@ -204,7 +226,7 @@ export function DeparturesDashboard() {
     tick.current += 1;
     const myTick = tick.current;
     try {
-      const next = await transitFetchDepartures(stop.id, stop.provider, 10);
+      const next = await transitFetchDepartures(stop.id, stop.provider, 30);
       if (myTick !== tick.current) return;
       setRows(next);
     } catch {
@@ -237,13 +259,20 @@ export function DeparturesDashboard() {
     const q = search.trim();
     if (q.length < 2) {
       setSuggestions([]);
+      setSearchFetchFailed(false);
       return;
     }
     if (searchTimer.current) clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(() => {
       void transitSearchStops(q, 8, searchProvider)
-        .then(setSuggestions)
-        .catch(() => setSuggestions([]));
+        .then((list) => {
+          setSuggestions(list);
+          setSearchFetchFailed(false);
+        })
+        .catch(() => {
+          setSuggestions([]);
+          setSearchFetchFailed(true);
+        });
     }, 320);
     return () => {
       if (searchTimer.current) clearTimeout(searchTimer.current);
@@ -266,6 +295,7 @@ export function DeparturesDashboard() {
 
   const requestNearby = useCallback(() => {
     setGeoStatus(null);
+    setGeoMapsFallback(null);
     if (!navigator.geolocation) {
       setGeoStatus("Geolocation wird von diesem Browser nicht unterstützt.");
       return;
@@ -280,6 +310,7 @@ export function DeparturesDashboard() {
         try {
           const list = await transitFetchNearby(lat, lon, 8, sourceMode);
           setNearby(list);
+          setGeoMapsFallback(null);
           const src = list[0]?.provider?.toUpperCase() ?? "—";
           setGeoStatus(
             list.length
@@ -288,8 +319,9 @@ export function DeparturesDashboard() {
           );
           if (list[0]) setStop(list[0]);
         } catch {
+          setGeoMapsFallback({ lat, lon });
           setGeoStatus(
-            "Haltestellen-Suche fehlgeschlagen — NeonLink-Server oder HAFAS-Quelle ggf. nicht erreichbar."
+            "Haltestellen-Suche fehlgeschlagen — NeonLink-Server oder HAFAS-Quelle ggf. nicht erreichbar. Unten kannst du den Bereich in Google Maps oder OpenStreetMap öffnen (ÖPNV-Layer bzw. Verbindungen dort prüfen)."
           );
           setNearby([]);
         }
@@ -397,17 +429,22 @@ export function DeparturesDashboard() {
                 <summary className="cursor-pointer select-none px-3 py-2 text-white/75 font-medium hover:bg-white/[0.04] rounded-xl">
                   Regionale Tarifverbünde (Übersicht) — Koppelung zu Live-Daten
                 </summary>
-                <div className="px-3 pb-3 pt-0 space-y-2 max-h-48 overflow-y-auto [scrollbar-gutter:stable]">
+                <div className="px-3 pb-3 pt-0 space-y-2 max-h-72 overflow-y-auto [scrollbar-gutter:stable]">
                   {GERMAN_TRANSIT_VERBUENDE.map((r) => (
                     <div key={r.land} className="border-t border-white/10 first:border-0 first:pt-0 pt-2">
                       <div className="text-white/80 font-semibold">{r.land}</div>
                       <p className="text-white/45 leading-snug mt-0.5">{r.coverageHint}</p>
-                      <ul className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
+                      <ul className="mt-1.5 space-y-1.5">
                         {r.verbuende.map((v) => (
                           <li key={`${r.land}-${v.kurz}`} className="text-white/60">
-                            <span className="text-cyan-200/90 font-medium">{v.kurz}</span>
-                            <span className="text-white/35"> · </span>
-                            {v.name}
+                            <div>
+                              <span className="text-cyan-200/90 font-medium">{v.kurz}</span>
+                              <span className="text-white/35"> · </span>
+                              {v.name}
+                            </div>
+                            {v.liveAuskunft ? (
+                              <p className="text-[9px] text-white/38 leading-snug mt-0.5 pl-0">{v.liveAuskunft}</p>
+                            ) : null}
                           </li>
                         ))}
                       </ul>
@@ -452,6 +489,34 @@ export function DeparturesDashboard() {
                   In der Nähe
                 </button>
               </div>
+              {searchFetchFailed && search.trim().length >= 2 ? (
+                <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-100/95 leading-snug space-y-2">
+                  <p>
+                    Haltestellen-Suche über den Server ist fehlgeschlagen. Als Alternative kannst du dieselbe Suche in
+                    Google Maps öffnen (zeigt u. a. ÖPNV-Verbindungen) — ohne API-Key, externer Dienst.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <a
+                      href={googleMapsSearchUrl(`${search.trim()} Haltestelle Deutschland`)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 rounded-lg border border-amber-400/40 bg-black/20 px-2.5 py-1.5 text-[11px] font-medium text-amber-50 hover:bg-black/35"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      Google Maps
+                    </a>
+                    <a
+                      href={googleMapsTransitDirectionsTo(search.trim())}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1.5 text-[11px] text-white/85 hover:bg-white/10"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      ÖPNV-Richtung (Google)
+                    </a>
+                  </div>
+                </div>
+              ) : null}
               {favorites.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
                   <span className="text-[10px] text-white/50 uppercase tracking-wide w-full sm:w-auto sm:mr-1">
@@ -505,6 +570,28 @@ export function DeparturesDashboard() {
                 </div>
               ) : null}
               {geoStatus ? <p className="text-[11px] text-cyan-100/80 leading-snug">{geoStatus}</p> : null}
+              {geoMapsFallback ? (
+                <div className="flex flex-wrap gap-2 pt-0.5">
+                  <a
+                    href={googleMapsAt(geoMapsFallback.lat, geoMapsFallback.lon, 16)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-lg border border-cyan-400/35 bg-cyan-500/15 px-2.5 py-1.5 text-[11px] font-medium text-cyan-100 hover:bg-cyan-500/25"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    Google Maps (Standort)
+                  </a>
+                  <a
+                    href={openStreetMapView(geoMapsFallback.lat, geoMapsFallback.lon, 16)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1.5 text-[11px] text-white/80 hover:bg-white/10"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    OpenStreetMap
+                  </a>
+                </div>
+              ) : null}
             </div>
 
             <div className="relative">
@@ -530,13 +617,37 @@ export function DeparturesDashboard() {
                     {error ? (
                       <tr>
                         <td colSpan={6} className="py-8 px-4 text-center text-sm text-red-300/95">
-                          {error}
+                          <p>{error}</p>
+                          <p className="mt-3 text-[11px] text-white/50 max-w-md mx-auto">
+                            Alternativ: Verbindungen und Abfahrten in Google Maps prüfen (extern, kein NeonLink-Server).
+                          </p>
+                          <a
+                            href={googleMapsTransitDirectionsTo(stop.name)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-2 inline-flex items-center gap-1 rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-[11px] text-cyan-200/90 hover:bg-white/10"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                            ÖPNV zu „{stripCitySuffix(stop.name)}“
+                          </a>
                         </td>
                       </tr>
                     ) : rows.length === 0 && !loading ? (
                       <tr>
                         <td colSpan={6} className="py-8 px-4 text-center text-sm text-white/60">
-                          Keine Abfahrten im gewählten Zeitraum.
+                          <p>Keine Abfahrten in den nächsten 24&nbsp;Stunden laut dieser Abfrage — oder der Dienst liefert gerade keine weiteren Einträge.</p>
+                          <p className="mt-2 text-[11px] text-white/40 max-w-md mx-auto">
+                            Nachts kann die nächste Verbindung erst in vielen Stunden liegen; mit dem vergrößerten Zeitfenster sollten solche Abfahrten erscheinen, sofern HAFAS sie meldet.
+                          </p>
+                          <a
+                            href={googleMapsTransitDirectionsTo(stop.name)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-3 inline-flex items-center gap-1 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-[11px] text-cyan-200/85 hover:bg-white/10"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                            In Google Maps (ÖPNV) öffnen
+                          </a>
                         </td>
                       </tr>
                     ) : (
@@ -551,10 +662,21 @@ export function DeparturesDashboard() {
                           className="border-b border-white/[0.07] hover:bg-white/[0.04] cursor-pointer group"
                         >
                           <td
-                            className={`py-2.5 pl-3 sm:pl-4 pr-2 align-middle font-bold text-xl tabular-nums ${minutesClass(r.minutes)}`}
+                            className={`py-2.5 pl-3 sm:pl-4 pr-2 align-middle font-bold tabular-nums ${
+                              r.minutes >= 60 ? "text-lg sm:text-xl" : "text-xl"
+                            } ${minutesClass(r.minutes)}`}
                           >
-                            {r.minutes}
-                            <span className="text-[10px] font-normal text-white/50 block leading-none">min</span>
+                            {(() => {
+                              const w = formatDepartureWait(r.minutes);
+                              return (
+                                <>
+                                  {w.main}
+                                  <span className="text-[10px] font-normal text-white/50 block leading-none mt-0.5">
+                                    {w.sub}
+                                  </span>
+                                </>
+                              );
+                            })()}
                           </td>
                           <td className="py-2.5 px-2 align-middle">
                             <span
@@ -586,8 +708,9 @@ export function DeparturesDashboard() {
               </div>
               <p className="text-[10px] text-white/35 px-3 sm:px-4 py-2 border-t border-white/10 leading-relaxed">
                 Abfrage über den <strong className="text-white/50">NeonLink-Server</strong> (HAFAS DB/BVG/VBB/HVV,
-                Retry &amp; Fallback) · GTFS-Realtime-Aufschaltung serverseitig vorbereitet · Aktualisierung ca. alle
-                45–60&nbsp;s · „In der Nähe“: GPS.
+                Retry &amp; Fallback) · Abfahrtsfenster ca. <strong className="text-white/45">24&nbsp;Stunden</strong> ·
+                GTFS-Realtime serverseitig vorbereitet · Aktualisierung ca. alle 45–60&nbsp;s · „In der Nähe“: GPS ·
+                Karten-Links: Google/OpenStreetMap (extern).
               </p>
             </div>
           </motion.div>
@@ -624,7 +747,17 @@ export function DeparturesDashboard() {
             </div>
             <dl className="grid grid-cols-2 gap-2 text-sm">
               <dt className="text-white/50">Abfahrt in</dt>
-              <dd className="font-semibold">{detail.minutes} min</dd>
+              <dd className="font-semibold">
+                {(() => {
+                  const w = formatDepartureWait(detail.minutes);
+                  return (
+                    <>
+                      {w.main}{" "}
+                      <span className="text-white/45 font-normal text-xs">({w.sub})</span>
+                    </>
+                  );
+                })()}
+              </dd>
               <dt className="text-white/50">Uhrzeit</dt>
               <dd className="font-mono">{detail.time}</dd>
               <dt className="text-white/50">Gleis</dt>

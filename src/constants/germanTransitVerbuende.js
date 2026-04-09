@@ -1,16 +1,48 @@
 export const GERMAN_TRANSIT_VERBUENDE = [
     {
         land: "Baden-Württemberg",
-        coverageHint: "Live-Abfahrten typischerweise über DB-HAFAS (bundesweit); regionale Tarife: VVS, KVV, …",
+        coverageHint: "Kein öffentliches transport.rest pro Verbund wie DB/VBB/HVV. Live kommt bei den Verbünden meist über EFA/TRIAS/GTFS (teils nur nach Anmeldung). In NeonLink: Haltestellen- und Abfahrtsdaten über DB-HAFAS (Modus „DB“ bzw. Auto).",
         verbuende: [
-            { kurz: "VVS", name: "Stuttgart" },
-            { kurz: "KVV", name: "Karlsruhe" },
-            { kurz: "VRN", name: "Rhein-Neckar" },
-            { kurz: "DING", name: "Donau-Iller" },
-            { kurz: "naldo", name: "Neckar-Alb-Donau" },
-            { kurz: "VGF", name: "Freiburg" },
-            { kurz: "VSB", name: "Schwarzwald-Baar-Heuberg" },
-            { kurz: "bodo", name: "Bodensee-Oberschwaben" },
+            {
+                kurz: "VVS",
+                name: "Stuttgart",
+                liveAuskunft: "Web-Fahrplan nutzt EFA; OpenData (GTFS, Haltestellen), TRIAS/GTFS-RT u. a. auf Anfrage beim VVS (OpenData). Kein freies HAFAS-REST wie v6.db. In dieser App: Live über DB-HAFAS.",
+            },
+            {
+                kurz: "KVV",
+                name: "Karlsruhe",
+                liveAuskunft: "GTFS täglich (Open Data, CC0); EFA/TRIAS für Entwickler nach Formular (fahrplan@kvv…). Echtzeit in EFA, wo freigeschaltet. Frühere „Live“-JSON-URLs sind inoffiziell / wechselhaft. In dieser App: DB-HAFAS.",
+            },
+            {
+                kurz: "VRN",
+                name: "Rhein-Neckar",
+                liveAuskunft: "Open-Data-Portal: GTFS + GTFS-Realtime (Echtzeit Bus/Straßenbahn, ohne SPNV im GTFS); „Open Service“ TRIAS mit Registrierung. In dieser App: DB-HAFAS.",
+            },
+            {
+                kurz: "DING",
+                name: "Donau-Iller",
+                liveAuskunft: "EFA-Mobile (Abfahrtsmonitor, z. B. DM-Requests mit Echtzeit). Kein separates transport.rest. In dieser App: DB-HAFAS.",
+            },
+            {
+                kurz: "naldo",
+                name: "Neckar-Alb-Donau",
+                liveAuskunft: "Verbund verweist auf landesweite Angebote (u. a. Mobidata-BW / TRIAS-EFA-BW); kein eigenes globales öffentliches REST-API. In dieser App: DB-HAFAS.",
+            },
+            {
+                kurz: "VGF",
+                name: "Freiburg",
+                liveAuskunft: "Regional über VAG/EFA und Tarifverbund; Live typisch in Verbund-Apps/Web. In dieser App: DB-HAFAS.",
+            },
+            {
+                kurz: "VSB",
+                name: "Schwarzwald-Baar-Heuberg",
+                liveAuskunft: "Regional über EFA-basierte Auskünfte (BW); keine eigene transport.rest-Instanz. In dieser App: DB-HAFAS.",
+            },
+            {
+                kurz: "bodo",
+                name: "Bodensee-Oberschwaben",
+                liveAuskunft: "EFA-gestützte Fahrpläne im Verbundgebiet; keine eigene öffentliche HAFAS-REST-Schicht. In dieser App: DB-HAFAS.",
+            },
         ],
     },
     {

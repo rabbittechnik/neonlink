@@ -48,7 +48,7 @@ export async function transitSearchStops(query, results, provider) {
     const data = (await res.json());
     return data.stops ?? [];
 }
-export async function transitFetchDepartures(stopId, provider, max = 10) {
+export async function transitFetchDepartures(stopId, provider, max = 30) {
     const url = fullUrl(`/transit/stops/${encodeURIComponent(stopId)}/departures`, {
         provider,
         limit: max,
