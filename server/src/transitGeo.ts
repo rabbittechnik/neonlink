@@ -1,10 +1,11 @@
-/** Gleiche Logik wie Frontend: Berlin-Zentrum + Radius → BVG vs DB. */
+/** Geo → bevorzugte HAFAS-Instanz (transport.rest). */
 
-export type TransitProvider = "bvg" | "db";
+export type TransitProvider = "db" | "bvg" | "vbb" | "hvv";
 
 const BERLIN_LAT = 52.516272;
 const BERLIN_LON = 13.377722;
-const BVG_RADIUS_KM = 95;
+/** Großraum Berlin–Brandenburg (VBB) — km vom Berliner Zentrum */
+const VBB_RADIUS_KM = 95;
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
@@ -20,11 +21,38 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
   return R * c;
 }
 
-export function providerForCoordinates(latitude: number, longitude: number): TransitProvider {
-  const d = haversineKm(latitude, longitude, BERLIN_LAT, BERLIN_LON);
-  return d <= BVG_RADIUS_KM ? "bvg" : "db";
+/** Grober Rahmen Hamburg / Umland (HVV). */
+function inHamburgMetropolitan(lat: number, lon: number): boolean {
+  return lat >= 53.32 && lat <= 53.85 && lon >= 9.55 && lon <= 10.45;
 }
 
-export function otherProvider(p: TransitProvider): TransitProvider {
-  return p === "bvg" ? "db" : "bvg";
+/**
+ * Eine „beste“ Instanz für den Standort (für Auto-„In der Nähe“).
+ * - Hamburg → HVV
+ * - ~Berlin/Brandenburg → VBB (nicht BVG — Landestarif)
+ * - sonst DB (bundesweit)
+ */
+export function providerForCoordinates(latitude: number, longitude: number): TransitProvider {
+  if (inHamburgMetropolitan(latitude, longitude)) return "hvv";
+  const d = haversineKm(latitude, longitude, BERLIN_LAT, BERLIN_LON);
+  if (d <= VBB_RADIUS_KM) return "vbb";
+  return "db";
+}
+
+/** Reihenfolge der Versuche bei „In der Nähe“ im Auto-Modus. */
+export function nearbyAutoChain(lat: number, lon: number): TransitProvider[] {
+  const p = providerForCoordinates(lat, lon);
+  if (p === "vbb") return ["vbb", "bvg", "db"];
+  if (p === "hvv") return ["hvv", "db"];
+  return ["db"];
+}
+
+/** Manuelle Modus-Auswahl → Fallback-Kette (Nearby). */
+export function nearbyChainForMode(mode: string, lat: number, lon: number): TransitProvider[] {
+  if (mode === "auto") return nearbyAutoChain(lat, lon);
+  if (mode === "db") return ["db"];
+  if (mode === "bvg") return ["bvg", "db"];
+  if (mode === "vbb") return ["vbb", "db"];
+  if (mode === "hvv") return ["hvv", "db"];
+  return nearbyAutoChain(lat, lon);
 }

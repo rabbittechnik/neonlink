@@ -3,12 +3,14 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   ChevronDown,
   ChevronUp,
+  Check,
   Loader2,
   MapPin,
   Star,
   TrainFront,
   X,
 } from "lucide-react";
+import { GERMAN_TRANSIT_VERBUENDE } from "@/constants/germanTransitVerbuende";
 import type { TransitDeparture, TransitLineType, TransitProvider, TransitStopRef } from "@/types/transit";
 import {
   transitFetchDepartures,
@@ -31,6 +33,8 @@ const DEFAULT_STOP: TransitStopRef = {
 };
 
 export type SourceMode = "auto" | TransitProvider;
+
+const SOURCE_MODE_ORDER = ["auto", "db", "bvg", "vbb", "hvv"] as const satisfies readonly SourceMode[];
 
 function stripCitySuffix(name: string): string {
   return name.replace(/\s*\([^)]*\)\s*$/u, "").trim();
@@ -56,7 +60,7 @@ function tryNormalizeStop(raw: unknown): TransitStopRef | null {
   const o = raw as Partial<TransitStopRef>;
   if (typeof o.id !== "string" || typeof o.name !== "string") return null;
   const provider: TransitProvider =
-    o.provider === "bvg" || o.provider === "db"
+    o.provider === "bvg" || o.provider === "db" || o.provider === "vbb" || o.provider === "hvv"
       ? o.provider
       : /^9\d{5,}/.test(o.id)
         ? "bvg"
@@ -87,13 +91,13 @@ function loadFavorites(): TransitStopRef[] {
 
 function loadSourceMode(): SourceMode {
   const v = loadJson<string | null>(LS_SOURCE_MODE, null);
-  if (v === "auto" || v === "bvg" || v === "db") return v;
+  if (v === "auto" || v === "bvg" || v === "db" || v === "vbb" || v === "hvv") return v;
   return "auto";
 }
 
 function loadLastAuto(): TransitProvider | null {
   const v = loadJson<string | null>(LS_LAST_AUTO, null);
-  return v === "bvg" || v === "db" ? v : null;
+  return v === "bvg" || v === "db" || v === "vbb" || v === "hvv" ? v : null;
 }
 
 function lineBadgeClass(t: TransitLineType): string {
@@ -124,7 +128,33 @@ function minutesClass(m: number): string {
 function sourceBadgeLabel(mode: SourceMode, lastAuto: TransitProvider | null, stop: TransitStopRef): string {
   if (mode === "bvg") return "BVG";
   if (mode === "db") return "DB";
+  if (mode === "vbb") return "VBB";
+  if (mode === "hvv") return "HVV";
   return lastAuto ? `Auto → ${lastAuto.toUpperCase()}` : `Auto → ${stop.provider.toUpperCase()}`;
+}
+
+function modeButtonLabel(m: SourceMode): string {
+  if (m === "auto") return "Auto (Standort)";
+  return m.toUpperCase();
+}
+
+/** Textsuche: Auto = DB (bundesweit); sonst gewählte HAFAS-Instanz. */
+function searchProviderForMode(mode: SourceMode): TransitProvider {
+  if (mode === "auto") return "db";
+  return mode;
+}
+
+function searchPlaceholderForProvider(p: TransitProvider): string {
+  switch (p) {
+    case "bvg":
+      return "Haltestelle suchen (Berlin / Brandenburg, BVG) …";
+    case "vbb":
+      return "Haltestelle suchen (Berlin / Brandenburg, VBB) …";
+    case "hvv":
+      return "Haltestelle suchen (Hamburg / HVV) …";
+    default:
+      return "Haltestelle oder Ort suchen (bundesweit, DB-HAFAS) …";
+  }
 }
 
 export function DeparturesDashboard() {
@@ -144,11 +174,7 @@ export function DeparturesDashboard() {
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tick = useRef(0);
 
-  const effectiveSearchProvider = useMemo((): TransitProvider => {
-    if (sourceMode === "bvg") return "bvg";
-    if (sourceMode === "db") return "db";
-    return lastAutoProvider ?? stop.provider;
-  }, [sourceMode, lastAutoProvider, stop.provider]);
+  const searchProvider = useMemo(() => searchProviderForMode(sourceMode), [sourceMode]);
 
   useEffect(() => {
     localStorage.setItem(LS_COLLAPSED, JSON.stringify(collapsed));
@@ -215,14 +241,14 @@ export function DeparturesDashboard() {
     }
     if (searchTimer.current) clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(() => {
-      void transitSearchStops(q, 8, effectiveSearchProvider)
+      void transitSearchStops(q, 8, searchProvider)
         .then(setSuggestions)
         .catch(() => setSuggestions([]));
     }, 320);
     return () => {
       if (searchTimer.current) clearTimeout(searchTimer.current);
     };
-  }, [search, effectiveSearchProvider]);
+  }, [search, searchProvider]);
 
   const toggleFavorite = useCallback(() => {
     setFavorites((prev) => {
@@ -257,7 +283,7 @@ export function DeparturesDashboard() {
           const src = list[0]?.provider?.toUpperCase() ?? "—";
           setGeoStatus(
             list.length
-              ? `${list.length} Haltestellen (Quelle: ${src}, Server mit Fallback) · ${sourceMode === "auto" ? `Auto: ${inferred.toUpperCase()} (${Math.round(lat * 100) / 100}°, ${Math.round(lon * 100) / 100}°)` : "Manuelle Quelle"}`
+              ? `${list.length} Haltestellen (zuerst ${src}${list.length > 1 ? ", ggf. Fallback" : ""}) · ${sourceMode === "auto" ? `Auto: ${inferred.toUpperCase()} (${Math.round(lat * 100) / 100}°, ${Math.round(lon * 100) / 100}°)` : `Manuelle Quelle: ${sourceMode.toUpperCase()}`}`
               : "Keine Haltestellen gefunden."
           );
           if (list[0]) setStop(list[0]);
@@ -285,16 +311,24 @@ export function DeparturesDashboard() {
           "0 0 0 1px rgba(34,211,238,0.08), 0 12px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06), 0 0 40px rgba(8,47,73,0.35)",
       }}
     >
-      <div className="flex flex-wrap items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 border-b border-white/10 bg-gradient-to-r from-[#0c2a4a] via-[#0a2240] to-[#0c2a4a]">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 border-b border-white/10 bg-gradient-to-r from-[#0c2a4a] via-[#0a2240] to-[#0c2a4a] ring-1 ring-inset ring-cyan-400/25 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.12)]">
         <div className="flex items-center gap-2 min-w-0 flex-1">
+          <div className="flex h-9 w-1 shrink-0 rounded-full bg-gradient-to-b from-cyan-300 via-cyan-400 to-emerald-400 shadow-[0_0_14px_rgba(34,211,238,0.55)]" aria-hidden />
           <TrainFront className="h-5 w-5 text-cyan-200 shrink-0 drop-shadow-[0_0_10px_rgba(34,211,238,0.45)]" />
           <div className="min-w-0">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-cyan-100/90 font-semibold">
-              Verkehr · Abfahrten
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-cyan-100/90 font-semibold">
+                Verkehr · Abfahrten
+              </div>
+              <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border border-emerald-400/55 bg-emerald-500/20 text-emerald-100 shadow-[0_0_12px_rgba(16,185,129,0.25)]">
+                Aktive Haltestelle
+              </span>
             </div>
-            <div className="flex flex-wrap items-center gap-2 min-w-0">
-              <div className="text-sm sm:text-base font-bold text-white truncate leading-tight">{stop.name}</div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full border border-white/20 bg-white/10 text-cyan-100/95 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 min-w-0 mt-0.5">
+              <div className="text-sm sm:text-base font-bold text-white truncate leading-tight drop-shadow-[0_0_12px_rgba(255,255,255,0.08)]">
+                {stop.name}
+              </div>
+              <span className="text-[10px] px-2 py-0.5 rounded-full border border-cyan-400/35 bg-cyan-500/15 text-cyan-50 shrink-0">
                 {stop.provider.toUpperCase()} · {sourceBadgeLabel(sourceMode, lastAutoProvider, stop)}
               </span>
             </div>
@@ -336,36 +370,56 @@ export function DeparturesDashboard() {
             <div className="px-3 sm:px-4 py-3 space-y-3 border-b border-white/10 bg-[#071018]/80">
               <div className="flex flex-wrap gap-2 items-center">
                 <span className="text-[10px] text-white/50 uppercase tracking-wide">Datenquelle</span>
-                {(["auto", "bvg", "db"] as const).map((m) => (
+                {SOURCE_MODE_ORDER.map((m) => (
                   <button
                     key={m}
                     type="button"
                     onClick={() => setSourceMode(m)}
                     className={`rounded-full px-2.5 py-1 text-[11px] border transition-colors ${
                       sourceMode === m
-                        ? "border-cyan-400/60 bg-cyan-500/25 text-cyan-50"
+                        ? "border-cyan-400/60 bg-cyan-500/25 text-cyan-50 shadow-[0_0_12px_rgba(34,211,238,0.2)]"
                         : "border-white/15 bg-white/5 text-white/75 hover:bg-white/10"
                     }`}
                   >
-                    {m === "auto" ? "Auto (Standort)" : m.toUpperCase()}
+                    {modeButtonLabel(m)}
                   </button>
                 ))}
               </div>
               <p className="text-[10px] text-white/45 leading-snug">
-                <strong className="text-white/70">Auto:</strong> in etwa 95&nbsp;km um Berlin → Daten von BVG
-                (Nahverkehr Berlin/Brandenburg), sonst → DB (bundesweit).{" "}
-                <strong className="text-white/70">Manuell:</strong> feste Quelle für Suche und „In der Nähe“. Die gewählte
-                Haltestelle nutzt {stop.provider.toUpperCase()}-IDs.
+                <strong className="text-white/70">Auto (Standort):</strong> „In der Nähe“ per GPS — Hamburg → HVV,
+                Großraum Berlin → VBB (Fallback BVG/DB), sonst DB. <strong className="text-white/70">Suche:</strong> im
+                Auto-Modus immer <strong className="text-white/65">DB (bundesweit)</strong>. Manuell{" "}
+                <strong className="text-white/65">BVG</strong>, <strong className="text-white/65">VBB</strong> oder{" "}
+                <strong className="text-white/65">HVV</strong> für passende IDs. Abfahrten nutzen die Quelle der
+                gewählten Haltestelle ({stop.provider.toUpperCase()}).
               </p>
+              <details className="rounded-xl border border-white/10 bg-[#0a1628]/90 text-[10px] text-white/55">
+                <summary className="cursor-pointer select-none px-3 py-2 text-white/75 font-medium hover:bg-white/[0.04] rounded-xl">
+                  Regionale Tarifverbünde (Übersicht) — Koppelung zu Live-Daten
+                </summary>
+                <div className="px-3 pb-3 pt-0 space-y-2 max-h-48 overflow-y-auto [scrollbar-gutter:stable]">
+                  {GERMAN_TRANSIT_VERBUENDE.map((r) => (
+                    <div key={r.land} className="border-t border-white/10 first:border-0 first:pt-0 pt-2">
+                      <div className="text-white/80 font-semibold">{r.land}</div>
+                      <p className="text-white/45 leading-snug mt-0.5">{r.coverageHint}</p>
+                      <ul className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
+                        {r.verbuende.map((v) => (
+                          <li key={`${r.land}-${v.kurz}`} className="text-white/60">
+                            <span className="text-cyan-200/90 font-medium">{v.kurz}</span>
+                            <span className="text-white/35"> · </span>
+                            {v.name}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </details>
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                 <div className="flex-1 min-w-0 relative">
                   <input
                     className="w-full rounded-xl border border-white/15 bg-[#0a1628] px-3 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
-                    placeholder={
-                      effectiveSearchProvider === "bvg"
-                        ? "Haltestelle suchen (Berlin / Brandenburg) …"
-                        : "Haltestelle oder Ort suchen (bundesweit, DB) …"
-                    }
+                    placeholder={searchPlaceholderForProvider(searchProvider)}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
@@ -408,14 +462,17 @@ export function DeparturesDashboard() {
                       key={`${f.provider}-${f.id}`}
                       type="button"
                       onClick={() => setStop(f)}
-                      className={`rounded-full px-2.5 py-1 text-[11px] border transition-colors ${
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] border transition-colors ${
                         f.id === stop.id && f.provider === stop.provider
-                          ? "border-cyan-400/60 bg-cyan-500/25 text-cyan-50"
+                          ? "border-cyan-400/70 bg-cyan-500/25 text-cyan-50 ring-1 ring-cyan-400/30"
                           : "border-white/15 bg-white/5 text-white/80 hover:bg-white/10"
                       }`}
                     >
+                      {f.id === stop.id && f.provider === stop.provider ? (
+                        <Check className="h-3 w-3 text-emerald-300 shrink-0" aria-hidden />
+                      ) : null}
                       {stripCitySuffix(f.name)}
-                      <span className="text-white/35 ml-1">{f.provider.toUpperCase()}</span>
+                      <span className="text-white/35 ml-0.5">{f.provider.toUpperCase()}</span>
                     </button>
                   ))}
                 </div>
@@ -430,12 +487,15 @@ export function DeparturesDashboard() {
                       key={`${n.provider}-${n.id}`}
                       type="button"
                       onClick={() => setStop(n)}
-                      className={`rounded-full px-2.5 py-1 text-[11px] border transition-colors ${
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] border transition-colors ${
                         n.id === stop.id && n.provider === stop.provider
-                          ? "border-emerald-400/50 bg-emerald-500/20 text-emerald-50"
+                          ? "border-emerald-400/60 bg-emerald-500/25 text-emerald-50 ring-1 ring-emerald-400/35"
                           : "border-white/15 bg-white/5 text-white/80 hover:bg-white/10"
                       }`}
                     >
+                      {n.id === stop.id && n.provider === stop.provider ? (
+                        <Check className="h-3 w-3 text-emerald-200 shrink-0" aria-hidden />
+                      ) : null}
                       {stripCitySuffix(n.name)}
                       {typeof n.distance === "number" ? (
                         <span className="text-white/40"> · {n.distance} m</span>
@@ -525,9 +585,9 @@ export function DeparturesDashboard() {
                 </table>
               </div>
               <p className="text-[10px] text-white/35 px-3 sm:px-4 py-2 border-t border-white/10 leading-relaxed">
-                Abfrage über den <strong className="text-white/50">NeonLink-Server</strong> (HAFAS BVG/DB, Retry &amp;
-                Fallback) · GTFS-Realtime-Aufschaltung serverseitig vorbereitet · Aktualisierung ca. alle 45–60&nbsp;s ·
-                „In der Nähe“: GPS.
+                Abfrage über den <strong className="text-white/50">NeonLink-Server</strong> (HAFAS DB/BVG/VBB/HVV,
+                Retry &amp; Fallback) · GTFS-Realtime-Aufschaltung serverseitig vorbereitet · Aktualisierung ca. alle
+                45–60&nbsp;s · „In der Nähe“: GPS.
               </p>
             </div>
           </motion.div>
