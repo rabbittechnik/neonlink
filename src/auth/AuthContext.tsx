@@ -98,6 +98,8 @@ type AuthContextValue = {
   startPhoneVerification: () => Promise<{ demoHint?: string }>;
   confirmPhoneVerification: (code: string) => Promise<void>;
   regenerateFriendCode: () => Promise<void>;
+  /** Aktuellen Nutzer inkl. Live-Status vom Server neu laden (z. B. nach Socket Connect). */
+  refreshProfile: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -353,6 +355,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(normalizeAuthUser(next));
   }, [authFetch]);
 
+  const refreshProfile = useCallback(async () => {
+    const t = token ?? sessionStorage.getItem(TOKEN_KEY);
+    if (!t) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/me`, {
+        headers: { Authorization: `Bearer ${t}` },
+      });
+      if (res.status === 401) {
+        sessionStorage.removeItem(TOKEN_KEY);
+        setToken(null);
+        setUser(null);
+        return;
+      }
+      if (!res.ok) return;
+      const data = (await res.json()) as Record<string, unknown>;
+      setUser(normalizeAuthUser(data));
+    } catch {
+      /* ignore */
+    }
+  }, [token]);
+
   const value = useMemo(
     () => ({
       token,
@@ -369,6 +392,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       startPhoneVerification,
       confirmPhoneVerification,
       regenerateFriendCode,
+      refreshProfile,
     }),
     [
       token,
@@ -385,6 +409,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       startPhoneVerification,
       confirmPhoneVerification,
       regenerateFriendCode,
+      refreshProfile,
     ]
   );
 

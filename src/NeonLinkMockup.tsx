@@ -55,7 +55,7 @@ import { ChatAttachmentMedia } from "@/components/chat/ChatAttachmentMedia";
 import { ChatMessageText } from "@/components/chat/ChatMessageText";
 import { CHAT_EMOJI_SECTIONS } from "@/constants/chatEmojis";
 import { CHAT_PRESET_GIFS } from "@/constants/chatGifs";
-import { MeetingsWorkspacePanel } from "@/components/meetings/MeetingsWorkspacePanel";
+import { MeetingsWorkspacePanel } from "@/components/meetings/MeetingsWorkspacePanel.tsx";
 import { NewsFeedPanel } from "@/components/news/NewsFeedPanel";
 import type { ApiCalendarEvent } from "@/types/calendar";
 import type { NewsFeedItem } from "@/types/news";
@@ -383,7 +383,7 @@ function StatusPill({ presence }: { presence: PresenceKind }) {
 }
 
 export default function NeonLinkMockup() {
-  const { user: authUser, token, authFetch, logout, regenerateFriendCode } = useAuth();
+  const { user: authUser, token, authFetch, logout, regenerateFriendCode, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const currentUser = authUser as (AuthUser & ServerUser) | null;
 
@@ -608,14 +608,11 @@ export default function NeonLinkMockup() {
   const roomOnline = visibleFriendsForSection.filter((friend) => friend.status === "online").length + 1;
   const activeTheme = sectionTheme[activeSection];
 
+  /** Eigener Status: live angebunden (= Socket), nicht nur /auth/me beim Login (das blieb oft auf „offline“). */
   const myEffectivePresence = useMemo((): PresenceKind => {
     if (!currentUser) return "offline";
-    return resolvePresenceForSection(
-      currentUser.status,
-      currentUser.statusBySection,
-      activeSection
-    );
-  }, [currentUser, activeSection]);
+    return isBackendOnline ? "online" : "offline";
+  }, [currentUser, isBackendOnline]);
 
   const onSelectSection = (sectionId: SectionId) => {
     setMainView("chat");
@@ -1897,6 +1894,7 @@ export default function NeonLinkMockup() {
       console.log("[socket] connected, re-joining rooms");
       joinedWorkspaceRoomsRef.current.clear();
       setIsBackendOnline(true);
+      void refreshProfile();
       const uid = currentUserRef.current?.id;
       if (uid) void loadFriendDataRef.current(uid);
       // Re-join all known rooms immediately on (re)connect so messages and
@@ -1915,8 +1913,12 @@ export default function NeonLinkMockup() {
     socket.on("disconnect", () => {
       joinedWorkspaceRoomsRef.current.clear();
       setIsBackendOnline(false);
+      void refreshProfile();
     });
-    socket.on("connect_error", () => setIsBackendOnline(false));
+    socket.on("connect_error", () => {
+      setIsBackendOnline(false);
+      void refreshProfile();
+    });
 
     socket.on("chat:messageUpdated", (message: ServerMessage) => {
       setChatMessages((prev) => prev.map((x) => (x.id === message.id ? mapServerMessageToChat(message) : x)));
@@ -1996,7 +1998,7 @@ export default function NeonLinkMockup() {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [token]);
+  }, [token, refreshProfile]);
 
   useEffect(() => {
     const socket = socketRef.current;
