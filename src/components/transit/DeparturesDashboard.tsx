@@ -423,7 +423,10 @@ export function DeparturesDashboard() {
                 Auto-Modus immer <strong className="text-white/65">DB (bundesweit)</strong>. Manuell{" "}
                 <strong className="text-white/65">BVG</strong>, <strong className="text-white/65">VBB</strong> oder{" "}
                 <strong className="text-white/65">HVV</strong> für passende IDs. Abfahrten nutzen die Quelle der
-                gewählten Haltestelle ({stop.provider.toUpperCase()}).
+                gewählten Haltestelle ({stop.provider.toUpperCase()}).{" "}
+                <strong className="text-white/55">Hinweis:</strong> Die DB-Website nutzt andere, interne Dienste;
+                NeonLink spricht die öffentliche <strong className="text-white/50">transport.rest</strong>-API an — die
+                kann stärker ausgelastet sein (kurze Wiederholungen auf dem Server).
               </p>
               <details className="rounded-xl border border-white/10 bg-[#0a1628]/90 text-[10px] text-white/55">
                 <summary className="cursor-pointer select-none px-3 py-2 text-white/75 font-medium hover:bg-white/[0.04] rounded-xl">
@@ -492,8 +495,10 @@ export function DeparturesDashboard() {
               {searchFetchFailed && search.trim().length >= 2 ? (
                 <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-100/95 leading-snug space-y-2">
                   <p>
-                    Haltestellen-Suche über den Server ist fehlgeschlagen. Als Alternative kannst du dieselbe Suche in
-                    Google Maps öffnen (zeigt u. a. ÖPNV-Verbindungen) — ohne API-Key, externer Dienst.
+                    Haltestellen-Suche über den Server ist fehlgeschlagen (oft temporär: die Proxy-API{" "}
+                    <span className="text-white/55">v6.db.transport.rest</span> ist nicht die gleiche Infrastruktur wie
+                    bahn.de). Als Alternative kannst du dieselbe Suche in Google Maps öffnen — ohne API-Key, externer
+                    Dienst.
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <a

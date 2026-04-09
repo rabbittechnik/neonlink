@@ -15,10 +15,15 @@ type StopRow = {
   distance?: number;
 };
 
+function isStopLikeRow(x: StopRow): boolean {
+  const t = x.type;
+  return (t === "stop" || t === "station") && Boolean(x.id && x.name);
+}
+
 function mapStopRows(data: unknown, provider: TransitProvider) {
   if (!Array.isArray(data)) return [];
   return (data as StopRow[])
-    .filter((x) => x.type === "stop" && x.id && x.name)
+    .filter(isStopLikeRow)
     .map((x) => ({
       id: x.id as string,
       name: x.name as string,
@@ -34,15 +39,26 @@ function nearbyUrl(base: string, lat: number, lon: number, results: number): str
   u.searchParams.set("results", String(results));
   u.searchParams.set("stops", "true");
   u.searchParams.set("poi", "false");
+  u.searchParams.set("language", "de");
   return u.toString();
 }
 
-function searchUrl(base: string, query: string, results: number): string {
+/** Schlanke Suche zuerst; bei Bedarf mit Adressen/POI wie DB-Web (mehr Treffer bei Orts-/Straßennamen). */
+function searchUrl(
+  base: string,
+  query: string,
+  results: number,
+  opts?: { includeAddressesAndPoi?: boolean }
+): string {
   const u = new URL(`${base}/locations`);
   u.searchParams.set("query", query);
   u.searchParams.set("results", String(results));
-  u.searchParams.set("poi", "false");
-  u.searchParams.set("addresses", "false");
+  u.searchParams.set("fuzzy", "true");
+  u.searchParams.set("stops", "true");
+  const extra = opts?.includeAddressesAndPoi === true;
+  u.searchParams.set("poi", extra ? "true" : "false");
+  u.searchParams.set("addresses", extra ? "true" : "false");
+  u.searchParams.set("language", "de");
   return u.toString();
 }
 
@@ -137,9 +153,15 @@ export function registerTransitRoutes(app: Express): void {
 
     const provider = parseTransitProvider(providerRaw, "db");
     try {
-      const url = searchUrl(baseFor(provider), query, results);
-      const data = await fetchUpstreamJson(url);
-      const stops = mapStopRows(data, provider);
+      const base = baseFor(provider);
+      let url = searchUrl(base, query, results);
+      let data = await fetchUpstreamJson(url);
+      let stops = mapStopRows(data, provider);
+      if (stops.length === 0 && base.includes("db")) {
+        url = searchUrl(base, query, results, { includeAddressesAndPoi: true });
+        data = await fetchUpstreamJson(url);
+        stops = mapStopRows(data, provider);
+      }
       return res.json({ provider, stops });
     } catch (e) {
       return res.status(502).json({
