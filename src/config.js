@@ -7,7 +7,10 @@ const fromEnv = typeof envApi === "string" ? stripTrailingSlash(envApi.trim()) :
 const embedDesktop = import.meta.env.VITE_EMBED_DESKTOP === "true";
 /** In DEV ohne VITE_API_BASE_URL: REST über Vite-Proxy `/api` → Backend */
 const devUsesProxy = import.meta.env.DEV && !fromEnv;
-/** Basis für fetch() (leer = gleiche Origin; Production nie localhost-Fallback) */
+/**
+ * Basis für fetch() (leer = gleiche Origin wie die Seite — z. B. Railway mit STATIC_DIST_PATH).
+ * In Production ohne VITE_API_BASE_URL: immer gleiche Origin, nie localhost (sonst bricht Hosting).
+ */
 export const API_BASE_URL = devUsesProxy
     ? "/api"
     : fromEnv

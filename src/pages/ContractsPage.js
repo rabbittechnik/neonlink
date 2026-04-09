@@ -46,6 +46,8 @@ export default function ContractsPage() {
     const [zipping, setZipping] = useState(false);
     const [createModalError, setCreateModalError] = useState(null);
     const [filePreviewUrls, setFilePreviewUrls] = useState([]);
+    const [financeHouseholdPlan, setFinanceHouseholdPlan] = useState(null);
+    const [financeHouseholdLoading, setFinanceHouseholdLoading] = useState(false);
     const fetchJson = useCallback(async (path) => {
         const res = await authFetch(path);
         if (res.status === 401) {
@@ -113,6 +115,27 @@ export default function ContractsPage() {
             c = true;
         };
     }, [workspaceId, fetchJson]);
+    const reloadFinanceHouseholdPlan = useCallback(async () => {
+        if (!workspaceId) {
+            setFinanceHouseholdPlan(null);
+            setFinanceHouseholdLoading(false);
+            return;
+        }
+        setFinanceHouseholdLoading(true);
+        try {
+            const data = await fetchJson(`/finance/household-plan?workspaceId=${encodeURIComponent(workspaceId)}`);
+            setFinanceHouseholdPlan(data.plan);
+        }
+        catch {
+            setFinanceHouseholdPlan(null);
+        }
+        finally {
+            setFinanceHouseholdLoading(false);
+        }
+    }, [workspaceId, fetchJson]);
+    useEffect(() => {
+        void reloadFinanceHouseholdPlan();
+    }, [reloadFinanceHouseholdPlan]);
     useEffect(() => {
         void reloadCustomCats();
     }, [reloadCustomCats]);
@@ -389,9 +412,16 @@ export default function ContractsPage() {
         const custom = customCats.map((c) => ({ key: c.key, label: c.label, customId: c.id }));
         return { presets: CONTRACT_PRESET_BUTTONS, custom };
     }, [customCats]);
+    const financeSharedMemberNames = useMemo(() => {
+        if (!financeHouseholdPlan)
+            return "";
+        return financeHouseholdPlan.memberUserIds
+            .map((id) => members.find((m) => m.userId === id)?.displayName ?? id)
+            .join(", ");
+    }, [financeHouseholdPlan, members]);
     const pages = viewer?.pageDataUrls ?? [];
     const safePage = Math.min(pageIndex, Math.max(0, pages.length - 1));
-    return (_jsxs("div", { className: "min-h-screen w-full bg-[#050816] text-white overflow-x-hidden", children: [_jsx("div", { className: "absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(34,211,238,0.14),transparent_35%),radial-gradient(circle_at_80%_30%,rgba(168,85,247,0.12),transparent_30%)]" }), _jsxs("div", { className: "relative z-10 max-w-6xl mx-auto px-4 py-8 pb-24", children: [_jsxs("div", { className: "flex flex-wrap items-center gap-4 mb-8", children: [_jsxs(Link, { to: "/", className: "inline-flex items-center gap-2 text-sm text-cyan-300 hover:text-cyan-100", children: [_jsx(ArrowLeft, { className: "h-4 w-4" }), "Zur\u00FCck zur App"] }), _jsx(Link, { to: "/finance", className: "inline-flex items-center gap-2 text-sm text-emerald-300/90 hover:text-emerald-100", children: "Zu Finanzen" }), _jsxs("div", { className: "flex items-center gap-2 text-violet-200", children: [_jsx(FileText, { className: "h-6 w-6" }), _jsx("h1", { className: "text-2xl font-semibold tracking-tight", children: "Vertr\u00E4ge & Dokumente" })] })] }), _jsxs("p", { className: "text-sm text-white/60 max-w-3xl mb-6 leading-relaxed", children: ["Eigene Rubrik neben den Finanzen: Vertr\u00E4ge und Nachweise nach Thema \u2014", " ", _jsx("span", { className: "text-white/80", children: "Fotos (JPEG)" }), " oder", " ", _jsx("span", { className: "text-white/80", children: "PDFs" }), " (bis ca. 6 MB pro Datei), mehrere Dateien = mehrere Seiten. In der Liste kannst du mehrere Eintr\u00E4ge markieren und als", " ", _jsx("span", { className: "text-white/80", children: "eine ZIP-Datei" }), " speichern.", " ", _jsx("span", { className: "text-amber-200/90", children: "\u201EPrivat\u201C / \u201EFamilie\u201C und Filter \u201EDokumente von\u201C wie bei Finanzen." })] }), loading ? (_jsxs("div", { className: "flex items-center gap-2 text-cyan-200/80", children: [_jsx(Loader2, { className: "h-5 w-5 animate-spin" }), " Lade Workspaces\u2026"] })) : (_jsxs(_Fragment, { children: [_jsxs("div", { className: "flex flex-wrap gap-3 mb-6 items-end", children: [_jsxs("div", { children: [_jsx("label", { className: "block text-xs text-white/50 mb-1", children: "Workspace" }), _jsx("select", { className: "rounded-xl bg-white/10 border border-white/15 px-3 py-2 text-sm", value: workspaceId ?? "", onChange: (e) => {
+    return (_jsxs("div", { className: "min-h-screen w-full bg-[#050816] text-white overflow-x-hidden", children: [_jsx("div", { className: "absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(34,211,238,0.14),transparent_35%),radial-gradient(circle_at_80%_30%,rgba(168,85,247,0.12),transparent_30%)]" }), _jsxs("div", { className: "relative z-10 max-w-6xl mx-auto px-4 py-8 pb-24", children: [_jsxs("div", { className: "flex flex-wrap items-center gap-4 mb-8", children: [_jsxs(Link, { to: "/", className: "inline-flex items-center gap-2 text-sm text-cyan-300 hover:text-cyan-100", children: [_jsx(ArrowLeft, { className: "h-4 w-4" }), "Zur\u00FCck zur App"] }), _jsx(Link, { to: "/finance", className: "inline-flex items-center gap-2 text-sm text-emerald-300/90 hover:text-emerald-100", children: "Zu Finanzen" }), _jsxs("div", { className: "flex items-center gap-2 text-violet-200", children: [_jsx(FileText, { className: "h-6 w-6" }), _jsx("h1", { className: "text-2xl font-semibold tracking-tight", children: "Vertr\u00E4ge & Dokumente" })] })] }), _jsxs("p", { className: "text-sm text-white/60 max-w-3xl mb-6 leading-relaxed", children: ["Eigene Rubrik neben den Finanzen: Vertr\u00E4ge und Nachweise nach Thema \u2014", " ", _jsx("span", { className: "text-white/80", children: "Fotos (JPEG)" }), " oder", " ", _jsx("span", { className: "text-white/80", children: "PDFs" }), " (bis ca. 6 MB pro Datei), mehrere Dateien = mehrere Seiten. In der Liste kannst du mehrere Eintr\u00E4ge markieren und als", " ", _jsx("span", { className: "text-white/80", children: "eine ZIP-Datei" }), " speichern.", " ", _jsx("span", { className: "text-amber-200/90", children: "\u201EPrivat\u201C / \u201EFamilie\u201C und Filter \u201EDokumente von\u201C wie bei Finanzen." })] }), !loading && workspaceId && !financeHouseholdLoading && financeHouseholdPlan ? (financeHouseholdPlan.memberUserIds.length > 1 ? (_jsx("div", { className: "rounded-2xl border border-violet-400/35 bg-violet-500/[0.12] p-4 mb-6 max-w-3xl", children: _jsxs("div", { className: "flex items-start gap-3", children: [_jsx(Users, { className: "h-5 w-5 text-violet-200 shrink-0 mt-0.5", "aria-hidden": true }), _jsxs("div", { className: "text-sm text-white/80 leading-relaxed", children: [_jsx("p", { className: "font-medium text-violet-100 mb-1", children: "Gemeinsamer Finanz-Haushaltsplan" }), _jsxs("p", { children: ["Mit", " ", _jsx("span", { className: "text-white font-medium", children: financeSharedMemberNames }), " sind", " ", _jsx("strong", { className: "text-white/90", children: "Vertr\u00E4ge und Finanzen" }), " in diesem Workspace abgestimmt: Ihr seht dieselben Dokumente und Belege, ohne doppelte Einrichtung."] }), _jsxs("p", { className: "mt-2 text-xs text-white/55", children: ["Mitglieder verwalten oder Fixkosten anpassen:", " ", _jsx(Link, { to: "/finance", className: "text-emerald-300 hover:text-emerald-100 underline-offset-2", children: "Zu Finanzen / Haushalte" }), "."] })] })] }) })) : (_jsxs("p", { className: "text-xs text-white/50 mb-5 max-w-3xl leading-relaxed", children: ["Du hast einen", " ", _jsx(Link, { to: "/finance", className: "text-emerald-300/90 hover:text-emerald-100", children: "Haushaltsplan" }), " ", "ohne weitere Mitglieder. Sobald du unter Finanzen Personen f\u00FCr den gemeinsamen Plan einl\u00E4dst, sehen diese automatisch auch deine hier hinterlegten Vertr\u00E4ge (wie bei den Finanzbelegen)."] }))) : null, loading ? (_jsxs("div", { className: "flex items-center gap-2 text-cyan-200/80", children: [_jsx(Loader2, { className: "h-5 w-5 animate-spin" }), " Lade Workspaces\u2026"] })) : (_jsxs(_Fragment, { children: [_jsxs("div", { className: "flex flex-wrap gap-3 mb-6 items-end", children: [_jsxs("div", { children: [_jsx("label", { className: "block text-xs text-white/50 mb-1", children: "Workspace" }), _jsx("select", { className: "rounded-xl bg-white/10 border border-white/15 px-3 py-2 text-sm", value: workspaceId ?? "", onChange: (e) => {
                                                     setWorkspaceId(e.target.value || null);
                                                     setSelectedCategoryKey(null);
                                                 }, children: workspaces.map((w) => (_jsx("option", { value: w.id, children: w.name }, w.id))) })] }), _jsxs("div", { className: "flex rounded-xl border border-white/15 p-1 bg-black/20", children: [_jsx("button", { type: "button", onClick: () => setScope("personal"), className: `px-4 py-2 rounded-lg text-sm ${scope === "personal" ? "bg-cyan-500/20 text-cyan-100" : "text-white/55"}`, children: "Privat" }), _jsx("button", { type: "button", onClick: () => setScope("family"), className: `px-4 py-2 rounded-lg text-sm ${scope === "family" ? "bg-fuchsia-500/20 text-fuchsia-100" : "text-white/55"}`, children: "Familie" })] }), _jsxs("div", { children: [_jsx("label", { className: "block text-xs text-white/50 mb-1", children: "Dokumente von" }), _jsxs("select", { className: "rounded-xl bg-white/10 border border-white/15 px-3 py-2 text-sm max-w-[14rem]", value: ownerFilter, onChange: (e) => setOwnerFilter(e.target.value), children: [_jsx("option", { value: "", children: "Alle (die ich sehen darf)" }), _jsx("option", { value: mine, children: "Nur meine" }), members

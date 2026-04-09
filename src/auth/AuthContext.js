@@ -28,11 +28,28 @@ function normalizeAuthUser(raw) {
         statusMessage: String(raw.statusMessage ?? ""),
         friendCode: String(raw.friendCode ?? ""),
         avatarUrl: raw.avatarUrl === null || raw.avatarUrl === undefined ? null : String(raw.avatarUrl),
+        chatTextColor: (() => {
+            const c = raw.chatTextColor;
+            if (c === null || c === undefined || c === "")
+                return null;
+            const s = String(c).trim();
+            return /^#[0-9A-Fa-f]{6}$/.test(s) ? s : null;
+        })(),
     };
 }
 const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
-    const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY));
+    const [token, setToken] = useState(() => {
+        const fromSession = sessionStorage.getItem(TOKEN_KEY);
+        if (fromSession)
+            return fromSession;
+        // Migrate away from persistent login on shared PCs.
+        const fromLocal = localStorage.getItem(TOKEN_KEY);
+        if (fromLocal) {
+            localStorage.removeItem(TOKEN_KEY);
+        }
+        return null;
+    });
     const [user, setUser] = useState(null);
     const [ready, setReady] = useState(false);
     const authFetch = useCallback(async (path, init) => {
@@ -57,7 +74,7 @@ export function AuthProvider({ children }) {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 if (!res.ok) {
-                    localStorage.removeItem(TOKEN_KEY);
+                    sessionStorage.removeItem(TOKEN_KEY);
                     if (!cancelled) {
                         setToken(null);
                         setUser(null);
@@ -111,7 +128,7 @@ export function AuthProvider({ children }) {
         if (!data.token || !data.user) {
             throw new Error("invalid_response");
         }
-        localStorage.setItem(TOKEN_KEY, data.token);
+        sessionStorage.setItem(TOKEN_KEY, data.token);
         setToken(data.token);
         setUser(normalizeAuthUser(data.user));
     }, []);
@@ -143,16 +160,13 @@ export function AuthProvider({ children }) {
             const err = payload;
             throw new Error(typeof err.error === "string" && err.error ? err.error : "register_failed");
         }
-        const data = payload;
-        if (!data.token || !data.user) {
-            throw new Error("invalid_response");
-        }
-        localStorage.setItem(TOKEN_KEY, data.token);
-        setToken(data.token);
-        setUser(normalizeAuthUser(data.user));
+        // Registration is successful, but no automatic login.
+        sessionStorage.removeItem(TOKEN_KEY);
+        setToken(null);
+        setUser(null);
     }, []);
     const logout = useCallback(async () => {
-        const t = localStorage.getItem(TOKEN_KEY);
+        const t = sessionStorage.getItem(TOKEN_KEY);
         if (t) {
             try {
                 await fetch(`${API_BASE_URL}/auth/logout`, {
@@ -164,7 +178,7 @@ export function AuthProvider({ children }) {
                 // ignorieren
             }
         }
-        localStorage.removeItem(TOKEN_KEY);
+        sessionStorage.removeItem(TOKEN_KEY);
         setToken(null);
         setUser(null);
     }, []);
@@ -174,7 +188,7 @@ export function AuthProvider({ children }) {
             body: JSON.stringify({ avatarUrl: avatarDataUrl }),
         });
         if (res.status === 401) {
-            localStorage.removeItem(TOKEN_KEY);
+            sessionStorage.removeItem(TOKEN_KEY);
             setToken(null);
             setUser(null);
             throw new Error("unauthorized");
@@ -192,7 +206,7 @@ export function AuthProvider({ children }) {
             body: JSON.stringify(patch),
         });
         if (res.status === 401) {
-            localStorage.removeItem(TOKEN_KEY);
+            sessionStorage.removeItem(TOKEN_KEY);
             setToken(null);
             setUser(null);
             throw new Error("unauthorized");
@@ -247,7 +261,7 @@ export function AuthProvider({ children }) {
     const regenerateFriendCode = useCallback(async () => {
         const res = await authFetch("/auth/me/friend-code/regenerate", { method: "POST" });
         if (res.status === 401) {
-            localStorage.removeItem(TOKEN_KEY);
+            sessionStorage.removeItem(TOKEN_KEY);
             setToken(null);
             setUser(null);
             throw new Error("unauthorized");
@@ -259,6 +273,29 @@ export function AuthProvider({ children }) {
         const next = (await res.json());
         setUser(normalizeAuthUser(next));
     }, [authFetch]);
+    const refreshProfile = useCallback(async () => {
+        const t = token ?? sessionStorage.getItem(TOKEN_KEY);
+        if (!t)
+            return;
+        try {
+            const res = await fetch(`${API_BASE_URL}/auth/me`, {
+                headers: { Authorization: `Bearer ${t}` },
+            });
+            if (res.status === 401) {
+                sessionStorage.removeItem(TOKEN_KEY);
+                setToken(null);
+                setUser(null);
+                return;
+            }
+            if (!res.ok)
+                return;
+            const data = (await res.json());
+            setUser(normalizeAuthUser(data));
+        }
+        catch {
+            /* ignore */
+        }
+    }, [token]);
     const value = useMemo(() => ({
         token,
         user,
@@ -274,6 +311,7 @@ export function AuthProvider({ children }) {
         startPhoneVerification,
         confirmPhoneVerification,
         regenerateFriendCode,
+        refreshProfile,
     }), [
         token,
         user,
@@ -289,6 +327,7 @@ export function AuthProvider({ children }) {
         startPhoneVerification,
         confirmPhoneVerification,
         regenerateFriendCode,
+        refreshProfile,
     ]);
     return _jsx(AuthContext.Provider, { value: value, children: children });
 }
