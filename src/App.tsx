@@ -1,5 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { AuthProvider, useAuth } from "@/auth/AuthContext.tsx";
+import { AuthProvider, useAuth } from "@/auth/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import NeonLinkMockup from "./NeonLinkMockup";
 import FinancePage from "./pages/FinancePage";

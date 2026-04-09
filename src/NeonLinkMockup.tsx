@@ -55,7 +55,7 @@ import { ChatAttachmentMedia } from "@/components/chat/ChatAttachmentMedia";
 import { ChatMessageText } from "@/components/chat/ChatMessageText";
 import { CHAT_EMOJI_SECTIONS } from "@/constants/chatEmojis";
 import { CHAT_PRESET_GIFS } from "@/constants/chatGifs";
-import { MeetingsWorkspacePanel } from "@/components/meetings/MeetingsWorkspacePanel.tsx";
+import { MeetingsWorkspacePanel } from "@/components/meetings/MeetingsWorkspacePanel";
 import { NewsFeedPanel } from "@/components/news/NewsFeedPanel";
 import type { ApiCalendarEvent } from "@/types/calendar";
 import type { NewsFeedItem } from "@/types/news";
