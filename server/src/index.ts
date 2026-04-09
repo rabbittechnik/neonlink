@@ -1843,6 +1843,11 @@ if (staticDist && fs.existsSync(staticDist)) {
   app.get("*", (req, res, next) => {
     if (req.method !== "GET" && req.method !== "HEAD") return next();
     if (req.path.startsWith("/socket.io")) return next();
+    /** Fehlende Build-Artefakte nicht durch index.html ersetzen (sonst liefert der Browser HTML statt JS). */
+    if (req.path.startsWith("/assets/")) {
+      res.status(404).type("text/plain").send("Static asset not found");
+      return;
+    }
     if (!fs.existsSync(indexHtml)) return next();
     res.sendFile(indexHtml);
   });

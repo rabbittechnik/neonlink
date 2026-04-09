@@ -5,7 +5,7 @@
 builder = "nixpacks"
 # Kein `npm run build` am Ende: Nixpacks/Docker hängt sonst ein zweites "build" an → "npm run build build".
 # Stattdessen vite direkt; Root-`node_modules` kommt vom Nixpacks-Install (kein zweites npm ci im Root).
-buildCommand = "export CI=true && npm ci --prefix server && npm run build --prefix server && VITE_EMBED_DESKTOP=true npx vite build"
+buildCommand = "export CI=true && npm ci --prefix server && npm run build --prefix server && VITE_EMBED_DESKTOP=true npx vite build && node scripts/verify-spa-dist.mjs"
 
 [build.environment]
 CI = "true"
