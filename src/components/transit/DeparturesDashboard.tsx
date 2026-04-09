@@ -10,8 +10,11 @@ import {
   X,
 } from "lucide-react";
 import type { TransitDeparture, TransitLineType, TransitProvider, TransitStopRef } from "@/types/transit";
-import { bvgFetchDepartures, bvgFetchNearby, bvgSearchStops } from "@/utils/transitBvg";
-import { dbFetchDepartures, dbFetchNearby, dbSearchStops } from "@/utils/transitDb";
+import {
+  transitFetchDepartures,
+  transitFetchNearby,
+  transitSearchStops,
+} from "@/utils/transitBackendClient";
 import { providerForCoordinates } from "@/utils/transitGeo";
 
 const LS_COLLAPSED = "neonlink.departures.collapsed";
@@ -20,10 +23,10 @@ const LS_STOP = "neonlink.departures.selectedStop";
 const LS_SOURCE_MODE = "neonlink.departures.sourceMode";
 const LS_LAST_AUTO = "neonlink.departures.lastAutoProvider";
 
-/** Standard für Südwest (z. B. Tübingen/Bodelshausen) — DB-Haltestellen-ID. */
+/** Technischer Startpunkt (DB), bis eine eigene Haltestelle gewählt wird — großer Fernbahnhof, bundesweit typisch. */
 const DEFAULT_STOP: TransitStopRef = {
-  id: "8000196",
-  name: "Tübingen Hbf",
+  id: "8000001",
+  name: "Frankfurt (Main) Hbf",
   provider: "db",
 };
 
@@ -31,6 +34,11 @@ export type SourceMode = "auto" | TransitProvider;
 
 function stripCitySuffix(name: string): string {
   return name.replace(/\s*\([^)]*\)\s*$/u, "").trim();
+}
+
+function formatRouteParts(parts: string[]): string {
+  if (!parts.length) return "—";
+  return parts.join(" → ");
 }
 
 function loadJson<T>(key: string, fallback: T): T {
@@ -170,18 +178,13 @@ export function DeparturesDashboard() {
     tick.current += 1;
     const myTick = tick.current;
     try {
-      const next =
-        stop.provider === "bvg"
-          ? await bvgFetchDepartures(stop.id, 10)
-          : await dbFetchDepartures(stop.id, 10);
+      const next = await transitFetchDepartures(stop.id, stop.provider, 10);
       if (myTick !== tick.current) return;
       setRows(next);
     } catch {
       if (myTick !== tick.current) return;
       setError(
-        stop.provider === "db"
-          ? "Abfahrten (DB) konnten nicht geladen werden — Dienst ggf. kurz nicht erreichbar (503) oder Netzwerk."
-          : "Abfahrten konnten nicht geladen werden (Netzwerk oder API)."
+        "Abfahrten konnten nicht geladen werden — NeonLink-Server oder HAFAS-Quelle (transport.rest) ggf. kurz nicht erreichbar."
       );
       setRows([]);
     } finally {
@@ -212,8 +215,7 @@ export function DeparturesDashboard() {
     }
     if (searchTimer.current) clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(() => {
-      const fn = effectiveSearchProvider === "bvg" ? bvgSearchStops : dbSearchStops;
-      void fn(q, 8)
+      void transitSearchStops(q, 8, effectiveSearchProvider)
         .then(setSuggestions)
         .catch(() => setSuggestions([]));
     }, 320);
@@ -249,25 +251,19 @@ export function DeparturesDashboard() {
         const lon = pos.coords.longitude;
         const inferred = providerForCoordinates(lat, lon);
         setLastAutoProvider(inferred);
-        const useApi: TransitProvider =
-          sourceMode === "auto" ? inferred : sourceMode === "bvg" ? "bvg" : "db";
         try {
-          const list =
-            useApi === "bvg"
-              ? await bvgFetchNearby(lat, lon, 8)
-              : await dbFetchNearby(lat, lon, 8);
+          const list = await transitFetchNearby(lat, lon, 8, sourceMode);
           setNearby(list);
+          const src = list[0]?.provider?.toUpperCase() ?? "—";
           setGeoStatus(
             list.length
-              ? `${list.length} Haltestellen (${useApi.toUpperCase()}) · ${sourceMode === "auto" ? `Auto: ${inferred.toUpperCase()} (${Math.round(lat * 100) / 100}°, ${Math.round(lon * 100) / 100}°)` : "Manuelle Quelle"}`
+              ? `${list.length} Haltestellen (Quelle: ${src}, Server mit Fallback) · ${sourceMode === "auto" ? `Auto: ${inferred.toUpperCase()} (${Math.round(lat * 100) / 100}°, ${Math.round(lon * 100) / 100}°)` : "Manuelle Quelle"}`
               : "Keine Haltestellen gefunden."
           );
           if (list[0]) setStop(list[0]);
         } catch {
           setGeoStatus(
-            useApi === "db"
-              ? "Haltestellen-Suche (DB) fehlgeschlagen — Dienst ggf. vorübergehend nicht erreichbar."
-              : "Haltestellen-Suche fehlgeschlagen."
+            "Haltestellen-Suche fehlgeschlagen — NeonLink-Server oder HAFAS-Quelle ggf. nicht erreichbar."
           );
           setNearby([]);
         }
@@ -356,9 +352,10 @@ export function DeparturesDashboard() {
                 ))}
               </div>
               <p className="text-[10px] text-white/45 leading-snug">
-                <strong className="text-white/70">Auto:</strong> ca. 95 km um Berlin → BVG, sonst DB (z.&nbsp;B.
-                Tübingen, Bodelshausen). <strong className="text-white/70">Manuell:</strong> feste Quelle für Suche und
-                „In der Nähe“. Aktuelle Haltestelle kommt von {stop.provider.toUpperCase()}-IDs.
+                <strong className="text-white/70">Auto:</strong> in etwa 95&nbsp;km um Berlin → Daten von BVG
+                (Nahverkehr Berlin/Brandenburg), sonst → DB (bundesweit).{" "}
+                <strong className="text-white/70">Manuell:</strong> feste Quelle für Suche und „In der Nähe“. Die gewählte
+                Haltestelle nutzt {stop.provider.toUpperCase()}-IDs.
               </p>
               <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                 <div className="flex-1 min-w-0 relative">
@@ -366,8 +363,8 @@ export function DeparturesDashboard() {
                     className="w-full rounded-xl border border-white/15 bg-[#0a1628] px-3 py-2 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
                     placeholder={
                       effectiveSearchProvider === "bvg"
-                        ? "Haltestelle suchen (z. B. Alexanderplatz) …"
-                        : "Haltestelle suchen (z. B. Tübingen Hbf, Bodelshausen) …"
+                        ? "Haltestelle suchen (Berlin / Brandenburg) …"
+                        : "Haltestelle oder Ort suchen (bundesweit, DB) …"
                     }
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -507,7 +504,7 @@ export function DeparturesDashboard() {
                             </span>
                           </td>
                           <td className="py-2.5 px-2 align-middle text-[11px] sm:text-xs text-white/65 leading-snug max-w-[14rem] line-clamp-2">
-                            {r.route}
+                            {formatRouteParts(r.route)}
                           </td>
                           <td className="py-2.5 px-2 align-middle text-sm sm:text-base font-bold text-white leading-tight group-hover:text-cyan-100 transition-colors">
                             {r.destination}
@@ -528,9 +525,9 @@ export function DeparturesDashboard() {
                 </table>
               </div>
               <p className="text-[10px] text-white/35 px-3 sm:px-4 py-2 border-t border-white/10 leading-relaxed">
-                Daten: <strong className="text-white/50">BVG</strong> (v6.bvg.transport.rest, Berlin/Brandenburg) und{" "}
-                <strong className="text-white/50">DB</strong> (v6.db.transport.rest, bundesweit) · Aktualisierung ca. alle
-                45–60&nbsp;s · „In der Nähe“: GPS (ohne WLAN-SSID im Browser).
+                Abfrage über den <strong className="text-white/50">NeonLink-Server</strong> (HAFAS BVG/DB, Retry &amp;
+                Fallback) · GTFS-Realtime-Aufschaltung serverseitig vorbereitet · Aktualisierung ca. alle 45–60&nbsp;s ·
+                „In der Nähe“: GPS.
               </p>
             </div>
           </motion.div>
@@ -573,7 +570,7 @@ export function DeparturesDashboard() {
               <dt className="text-white/50">Gleis</dt>
               <dd>{detail.platform ?? "—"}</dd>
               <dt className="text-white/50">Route</dt>
-              <dd className="col-span-2 text-xs text-white/75">{detail.route}</dd>
+              <dd className="col-span-2 text-xs text-white/75">{formatRouteParts(detail.route)}</dd>
             </dl>
             <button
               type="button"

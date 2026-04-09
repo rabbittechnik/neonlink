@@ -10,14 +10,16 @@ export type TransitDeparture = {
   minutes: number;
   line: string;
   type: TransitLineType;
-  /** Kurze Weg-Beschreibung (Zwischenhalte oft nicht von der API geliefert). */
-  route: string;
+  /** Zwischenstationen / Weg (oft nur ein oder zwei Einträge von HAFAS). */
+  route: string[];
   destination: string;
   platform: string | null;
   /** HH:mm */
   time: string;
   /** Verspätung in Minuten (nur wenn > 0 sinnvoll anzeigen). */
   delayMinutes: number | null;
+  /** Optional: z. B. hafas_db, hafas_bvg — gesetzt wenn Backend liefert. */
+  sources?: string[];
 };
 
 export type TransitStopRef = {

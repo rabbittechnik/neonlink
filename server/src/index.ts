@@ -121,6 +121,7 @@ import {
 } from "./store.js";
 import { isMailConfigured, sendEmailVerificationCode, sendPasswordResetEmail } from "./mail.js";
 import { initPersistenceAsync } from "./persistence.js";
+import { registerTransitRoutes } from "./transitRoutes.js";
 
 await initPersistenceAsync();
 dedupeWorkspaceMembers();
@@ -204,6 +205,8 @@ function requireAuth(req: express.Request, res: express.Response, next: express.
 app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "neonlink-server" });
 });
+
+registerTransitRoutes(app);
 
 app.post("/auth/login", (req, res) => {
   const { email, password } = req.body as { email?: string; password?: string };
