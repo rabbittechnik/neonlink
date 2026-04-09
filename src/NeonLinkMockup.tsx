@@ -2707,7 +2707,19 @@ export default function NeonLinkMockup() {
                       `/workspaces/${activeWorkspaceId}/meetings/${meetingId}`,
                       { method: "DELETE" }
                     );
-                    if (!res.ok) throw new Error("delete_failed");
+                    if (!res.ok) {
+                      const d = (await res.json().catch(() => ({}))) as { error?: string };
+                      if (res.status === 403 || d.error === "forbidden") {
+                        setAppNotice("Nur der Ersteller (Organisator) darf dieses Meeting löschen.");
+                        return;
+                      }
+                      setAppNotice(
+                        d.error === "not_found"
+                          ? "Meeting wurde nicht gefunden."
+                          : "Meeting konnte nicht gelöscht werden."
+                      );
+                      return;
+                    }
                   }}
                   onCreateRoom={async (name) => {
                     if (!activeWorkspaceId) return;

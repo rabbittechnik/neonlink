@@ -505,6 +505,7 @@ export function MeetingsWorkspacePanel({
                           <Video className="h-3.5 w-3.5 shrink-0" aria-hidden />
                           Beitreten
                         </a>
+                        {/* Papierkorb nur für den Ersteller — serverseitig ebenfalls in deleteWorkspaceMeeting geprüft */}
                         {m.createdByUserId === currentUserId ? (
                           <Button
                             type="button"
@@ -518,7 +519,8 @@ export function MeetingsWorkspacePanel({
                               }
                             }}
                             className="rounded-xl h-9 w-9 p-0 text-red-300/80 hover:bg-red-500/15 hover:text-red-200"
-                            aria-label="Meeting löschen"
+                            aria-label="Meeting löschen (nur Organisator)"
+                            title="Meeting löschen — nur du als Organisator"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
