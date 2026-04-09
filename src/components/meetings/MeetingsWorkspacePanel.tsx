@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { CalendarDays, Pencil, Plus, Trash2, Users, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -529,69 +530,82 @@ export function MeetingsWorkspacePanel({
         </Card>
       </div>
 
-      {detail ? (
-        <div
-          className="fixed inset-0 z-[84] flex items-end sm:items-center justify-center p-4 bg-black/50"
-          role="dialog"
-          aria-modal="true"
-        >
-          <button
-            type="button"
-            className="absolute inset-0 z-0 cursor-default"
-            aria-label="Dialog schliessen (Hintergrund)"
-            onClick={() => setDetailId(null)}
-          />
-          <div className="relative z-10 flex w-full max-w-md max-h-[90vh] flex-col overflow-hidden rounded-3xl border border-white/15 bg-[#0c1428] shadow-xl">
-            <div className="min-h-0 flex-1 overflow-y-auto p-5 space-y-3">
-              <h3 className="text-lg font-semibold text-white pr-2">{detail.title}</h3>
-              <p className="text-xs text-cyan-200/80">{formatRange(detail.startsAt, detail.endsAt)}</p>
-              <p className="text-[10px] text-white/55 leading-snug">
-                Video läuft in einem <strong className="text-cyan-100/90">neuen Tab</strong> (Hauptseite bleibt offen).
-                Mikrofon/Kamera freigeben; Bildschirmfreigabe in der Jitsi-Leiste.
-              </p>
-              {detail.description ? (
-                <p className="text-sm text-white/90 leading-relaxed border-t border-white/10 pt-3">{detail.description}</p>
-              ) : null}
-              <div className="text-xs text-white/90 border-t border-white/10 pt-3">
-                <div className="font-medium text-white mb-1">Teilnehmer</div>
-                <ul className="space-y-1">
-                  <li>• {namesById[detail.createdByUserId] ?? "Organisator"} (Organisator)</li>
-                  {detail.participantUserIds.map((id) => (
-                    <li key={id}>• {namesById[id] ?? id}</li>
-                  ))}
-                </ul>
-              </div>
-              <p className="text-[10px] text-white/45 pb-1">
-                In Jitsi als <span className="text-cyan-200/90">{currentUserDisplayName}</span>.
-              </p>
-            </div>
-            <div className="shrink-0 border-t border-white/15 bg-[#0c1428] p-4 space-y-2">
-              <a
-                href={videoMeetingPath({
-                  workspaceId,
-                  meetingId: detail.id,
-                  title: detail.title,
-                })}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setDetailId(null)}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500/45 to-cyan-600/40 border border-emerald-400/55 text-white font-semibold py-4 text-base hover:from-emerald-500/55 hover:to-cyan-600/50 shadow-[0_0_28px_rgba(34,211,238,0.22)] no-underline"
-              >
-                <Video className="h-5 w-5 shrink-0" aria-hidden />
-                Jetzt beitreten
-              </a>
-              <Button
+      {detail
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[99999] flex items-end sm:items-center justify-center p-4 bg-black/50"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="meeting-detail-title"
+            >
+              <button
                 type="button"
-                variant="ghost"
-                className="w-full rounded-xl text-white/80 hover:bg-white/5"
+                className="absolute inset-0 z-0 cursor-default"
+                aria-label="Dialog schliessen (Hintergrund)"
                 onClick={() => setDetailId(null)}
-              >
-                Schliessen
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+              />
+              <div className="relative z-10 flex w-full max-w-md max-h-[90vh] flex-col overflow-hidden rounded-3xl border border-white/15 bg-[#0c1428] shadow-xl">
+                <div className="min-h-0 flex-1 overflow-y-auto p-5 space-y-3">
+                  <h3 id="meeting-detail-title" className="text-lg font-semibold text-white pr-2">
+                    {detail.title}
+                  </h3>
+                  <p className="text-xs text-cyan-200/80">{formatRange(detail.startsAt, detail.endsAt)}</p>
+                  <p className="text-[10px] text-white/55 leading-snug">
+                    Video läuft in einem <strong className="text-cyan-100/90">neuen Tab</strong> (Hauptseite bleibt
+                    offen). Mikrofon/Kamera freigeben; Bildschirmfreigabe in der Jitsi-Leiste.
+                  </p>
+                  {detail.description ? (
+                    <p className="text-sm text-white/90 leading-relaxed border-t border-white/10 pt-3">
+                      {detail.description}
+                    </p>
+                  ) : null}
+                  <div className="text-xs text-white/90 border-t border-white/10 pt-3">
+                    <div className="font-medium text-white mb-1">Teilnehmer</div>
+                    <ul className="space-y-1">
+                      <li>• {namesById[detail.createdByUserId] ?? "Organisator"} (Organisator)</li>
+                      {detail.participantUserIds.map((id) => (
+                        <li key={id}>• {namesById[id] ?? id}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <p className="text-[10px] text-white/45 pb-1">
+                    In Jitsi als <span className="text-cyan-200/90">{currentUserDisplayName}</span>.
+                  </p>
+                </div>
+                <div className="shrink-0 border-t border-white/15 bg-[#0c1428] p-4 space-y-2">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500/45 to-cyan-600/40 border border-emerald-400/55 text-white font-semibold py-4 text-base hover:from-emerald-500/55 hover:to-cyan-600/50 shadow-[0_0_28px_rgba(34,211,238,0.22)]"
+                    onClick={() => {
+                      window.open(
+                        videoMeetingPath({
+                          workspaceId,
+                          meetingId: detail.id,
+                          title: detail.title,
+                        }),
+                        "_blank",
+                        "noopener,noreferrer"
+                      );
+                      setDetailId(null);
+                    }}
+                  >
+                    <Video className="h-5 w-5 shrink-0" aria-hidden />
+                    Jetzt beitreten
+                  </button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full rounded-xl text-white/80 hover:bg-white/5"
+                    onClick={() => setDetailId(null)}
+                  >
+                    Schliessen
+                  </Button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
 
       <CreateMeetingModal
         open={modalOpen}
