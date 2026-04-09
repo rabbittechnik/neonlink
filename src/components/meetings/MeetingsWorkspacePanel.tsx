@@ -110,6 +110,13 @@ export function MeetingsWorkspacePanel({
     setVideoOpen(true);
   };
 
+  /** Eigenes Jitsi pro geplantem Meeting (stabiler Raumname aus Meeting-ID). */
+  const openPlannedMeetingVideo = (m: ApiMeeting) => {
+    setJitsiMeeting(m);
+    setVideoOpen(true);
+    setDetailId(null);
+  };
+
   const sendQuickInvites = async () => {
     if (!activeRoomId || !activeRoom) return;
     const participantUserIds = Object.entries(quickInvite)
@@ -323,15 +330,26 @@ export function MeetingsWorkspacePanel({
               <Video className="h-5 w-5 text-cyan-300 shrink-0" />
               <span className="truncate">{activeRoom ? activeRoom.name : "Raum wählen"}</span>
             </CardTitle>
-            <Button
-              type="button"
-              disabled={!activeRoomId}
-              onClick={() => setModalOpen(true)}
-              className="rounded-xl bg-cyan-500/20 border border-cyan-400/35 text-cyan-100 hover:bg-cyan-500/30 text-sm shrink-0"
-            >
-              <Plus className="h-4 w-4 mr-1.5 inline" />
-              Meeting planen
-            </Button>
+            <div className="flex flex-wrap items-center gap-2 justify-end shrink-0">
+              <Button
+                type="button"
+                disabled={!activeRoomId}
+                onClick={startRoomNow}
+                className="rounded-xl bg-gradient-to-r from-emerald-500/35 to-cyan-500/30 border border-emerald-400/45 text-white hover:from-emerald-500/45 hover:to-cyan-500/40 text-sm font-medium shadow-[0_0_20px_rgba(52,211,153,0.15)]"
+              >
+                <Video className="h-4 w-4 mr-1.5 inline" />
+                Video-Raum jetzt
+              </Button>
+              <Button
+                type="button"
+                disabled={!activeRoomId}
+                onClick={() => setModalOpen(true)}
+                className="rounded-xl bg-cyan-500/20 border border-cyan-400/35 text-cyan-100 hover:bg-cyan-500/30 text-sm"
+              >
+                <Plus className="h-4 w-4 mr-1.5 inline" />
+                Meeting planen
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="flex-1 min-h-0 overflow-y-auto pt-4 space-y-3">
             {activeRoomId ? (
@@ -398,39 +416,61 @@ export function MeetingsWorkspacePanel({
             ) : (
               meetings.map((m) => {
                 const startMs = new Date(m.startsAt).getTime();
-                const live = startMs <= nowMs && nowMs <= new Date(m.endsAt).getTime();
+                const endMs = new Date(m.endsAt).getTime();
+                const live = startMs <= nowMs && nowMs <= endMs;
                 return (
-                  <button
+                  <div
                     key={m.id}
-                    type="button"
-                    onClick={() => setDetailId(m.id)}
-                    className="w-full text-left rounded-2xl border border-white/10 bg-black/25 hover:border-cyan-400/25 hover:bg-white/[0.04] p-4 transition-colors"
+                    className="w-full rounded-2xl border border-white/10 bg-black/25 hover:border-cyan-400/25 hover:bg-white/[0.04] p-4 transition-colors flex flex-col sm:flex-row sm:items-stretch gap-3"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="font-medium text-white flex items-center gap-2 flex-wrap">
-                          {m.title}
-                          {live ? (
-                            <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-200 border border-emerald-400/40 animate-pulse">
-                              läuft
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="text-xs text-cyan-200/70 mt-1 flex items-center gap-1">
-                          <CalendarDays className="h-3.5 w-3.5" />
-                          {formatRange(m.startsAt, m.endsAt)}
-                        </div>
-                        <div className="text-[11px] text-white/90 mt-1 flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          {m.participantUserIds.length + 1} Teilnehmer (inkl. Organisator)
-                        </div>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      className="min-w-0 flex-1 text-left cursor-pointer rounded-xl -m-1 p-1"
+                      onClick={() => setDetailId(m.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setDetailId(m.id);
+                        }
+                      }}
+                    >
+                      <div className="font-medium text-white flex items-center gap-2 flex-wrap">
+                        {m.title}
+                        {live ? (
+                          <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-200 border border-emerald-400/40 animate-pulse">
+                            läuft
+                          </span>
+                        ) : null}
                       </div>
+                      <div className="text-xs text-cyan-200/70 mt-1 flex items-center gap-1">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        {formatRange(m.startsAt, m.endsAt)}
+                      </div>
+                      <div className="text-[11px] text-white/90 mt-1 flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        {m.participantUserIds.length + 1} Teilnehmer (inkl. Organisator)
+                      </div>
+                      <p className="text-[10px] text-white/50 mt-1.5">Tippen für Details · unten direkt Video</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 shrink-0 sm:flex-col sm:items-stretch sm:justify-center">
+                      <Button
+                        type="button"
+                        onClick={() => openPlannedMeetingVideo(m)}
+                        className={`rounded-xl text-sm font-medium ${
+                          live
+                            ? "bg-gradient-to-r from-emerald-500/40 to-cyan-500/35 border border-emerald-400/50 text-white animate-pulse"
+                            : "bg-violet-500/25 border border-violet-400/40 text-violet-100"
+                        }`}
+                      >
+                        <Video className="h-4 w-4 mr-1.5 inline" />
+                        {live ? "Jetzt beitreten" : "Video starten"}
+                      </Button>
                       {m.createdByUserId === currentUserId ? (
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => {
-                            e.stopPropagation();
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => {
                             if (confirm("Meeting löschen? Kalendereintrag wird entfernt.")) {
                               void onDeleteMeeting(m.id).then(() => {
                                 onRefreshMeetings();
@@ -438,20 +478,14 @@ export function MeetingsWorkspacePanel({
                               });
                             }
                           }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              e.stopPropagation();
-                            }
-                          }}
-                          className="p-2 rounded-xl text-red-300/80 hover:bg-red-500/15 shrink-0"
+                          className="rounded-xl text-red-300/80 hover:bg-red-500/15 hover:text-red-200"
                           aria-label="Meeting löschen"
                         >
                           <Trash2 className="h-4 w-4" />
-                        </span>
+                        </Button>
                       ) : null}
                     </div>
-                  </button>
+                  </div>
                 );
               })
             )}
@@ -474,10 +508,21 @@ export function MeetingsWorkspacePanel({
           <div className="relative w-full max-w-md rounded-3xl border border-white/15 bg-[#0c1428] p-5 shadow-xl">
             <h3 className="text-lg font-semibold text-white pr-8">{detail.title}</h3>
             <p className="text-xs text-cyan-200/80 mt-1">{formatRange(detail.startsAt, detail.endsAt)}</p>
+            <Button
+              type="button"
+              className="mt-4 w-full rounded-xl bg-gradient-to-r from-emerald-500/35 to-cyan-600/35 border border-emerald-400/50 text-white font-semibold py-6 text-base hover:from-emerald-500/45 hover:to-cyan-600/45 shadow-[0_0_24px_rgba(34,211,238,0.18)]"
+              onClick={() => openPlannedMeetingVideo(detail)}
+            >
+              <Video className="h-5 w-5 mr-2 inline shrink-0" />
+              Video-Call starten (Kamera &amp; Bildschirm)
+            </Button>
+            <p className="text-[10px] text-white/55 mt-2 leading-snug">
+              Öffnet Jitsi in Vollbild. Mikrofon/Kamera freigeben; Bildschirmübertragung in Jitsi über die Werkzeugleiste.
+            </p>
             {detail.description ? (
-              <p className="text-sm text-white mt-3 leading-relaxed">{detail.description}</p>
+              <p className="text-sm text-white/90 mt-4 leading-relaxed border-t border-white/10 pt-3">{detail.description}</p>
             ) : null}
-            <div className="mt-4 text-xs text-white/90">
+            <div className="mt-4 text-xs text-white/90 border-t border-white/10 pt-3">
               <div className="font-medium text-white mb-1">Teilnehmer</div>
               <ul className="space-y-1">
                 <li>• {namesById[detail.createdByUserId] ?? "Organisator"} (Organisator)</li>
@@ -486,25 +531,13 @@ export function MeetingsWorkspacePanel({
                 ))}
               </ul>
             </div>
-            <Button
-              type="button"
-              className="mt-3 w-full rounded-xl bg-cyan-500/25 border border-cyan-400/40 text-cyan-50 hover:bg-cyan-500/35 gap-2"
-              onClick={() => {
-                setJitsiMeeting(detail);
-                setVideoOpen(true);
-              }}
-            >
-              <Video className="h-4 w-4 shrink-0" />
-              Video-Meeting starten (Jitsi)
-            </Button>
-            <p className="text-[10px] text-white/60 mt-2 leading-snug">
-              Echter Video-/Audio-Call im Browser. Raum: gemeinsam für alle mit diesem Link sichtbar. Als{" "}
-              <span className="text-cyan-200/90">{currentUserDisplayName}</span> in Jitsi anmelden.
+            <p className="text-[10px] text-white/45 mt-2">
+              Als <span className="text-cyan-200/90">{currentUserDisplayName}</span> in Jitsi.
             </p>
             <Button
               type="button"
               variant="ghost"
-              className="mt-3 w-full rounded-xl text-white"
+              className="mt-3 w-full rounded-xl text-white/80"
               onClick={() => setDetailId(null)}
             >
               Schliessen
