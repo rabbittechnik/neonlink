@@ -2,7 +2,7 @@
 # https://docs.railway.com/reference/config-as-code
 
 [build]
-builder = "nixpacks"
+builder = "RAILPACK"
 # Kein `npm run build` am Ende: Nixpacks/Docker hängt sonst ein zweites "build" an → "npm run build build".
 # Stattdessen vite direkt; Root-`node_modules` kommt vom Nixpacks-Install (kein zweites npm ci im Root).
 buildCommand = "export CI=true && npm ci --prefix server && npm run build --prefix server && VITE_EMBED_DESKTOP=true npx vite build && node scripts/verify-spa-dist.mjs"
@@ -13,6 +13,7 @@ CI = "true"
 ELECTRON_SKIP_BINARY_DOWNLOAD = "1"
 # Server/package.json verlangt Node ≥20; Joi (transitiv) ebenfalls.
 NIXPACKS_NODE_VERSION = "20"
+RAILPACK_NODE_VERSION = "20"
 
 [deploy]
 startCommand = "cd server && BIND_ADDRESS=0.0.0.0 STATIC_DIST_PATH=../dist node dist/index.js"
